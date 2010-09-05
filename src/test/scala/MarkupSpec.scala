@@ -14,6 +14,8 @@ class MarkupParserSpec extends MarkupParser with Spec with ShouldMatchers {
 
 a first paragraph
 
+  some famous words
+
 ** the second header
 
 and another
@@ -33,6 +35,8 @@ and another
         Body(List(
           Header(1, Text("the first header")),
           Para(List(Text("a first paragraph"))),
+          Block(List(
+              Para(List(Text("some famous words"))))),
           Header(2, Text("the second header")),
           Para(List(Text("and another")))))
         ) {
@@ -47,6 +51,9 @@ and another
       val xml = <body>
                   <h1>the first header</h1>
                   <p>a first paragraph</p>
+                  <blockquote>
+                    <p>some famous words</p>
+                  </blockquote>
                   <h2>the second header</h2>
                   <p>and another</p>
                 </body>

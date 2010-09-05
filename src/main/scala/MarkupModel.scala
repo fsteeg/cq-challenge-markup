@@ -11,6 +11,10 @@ object MarkupModel {
   case class Body(children: List[Element]) extends Element(children) {
     override def toXml = <body>{ children.map(_.toXml) }</body>
   }
+  
+  case class Block(children: List[Element]) extends Element(children){
+    override def toXml = <blockquote>{ children.map(_.toXml) }</blockquote>
+  }
 
   case class Header(level: Int, content: Text) extends Element(List(content)) {
     override def toXml = Elem(null, "h" + level, Null, xml.TopScope, content.toXml)
