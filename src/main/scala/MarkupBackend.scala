@@ -11,5 +11,8 @@ object MarkupBackend {
     case h:Header => Elem(null, "h" + h.level, Null, xml.TopScope, toXml(h.content))
     case p:Para => <p>{ p.children.map(toXml) }</p>
     case t:Text => new scala.xml.Text(t.content)
+    case o:OrderedList => <ol>{ o.items.map(toXml) }</ol>
+    case u:UnorderedList => <ul>{ u.items.map(toXml) }</ul>
+    case i:ListItem => <li>{ toXml(i.content) }</li>
   }
 }

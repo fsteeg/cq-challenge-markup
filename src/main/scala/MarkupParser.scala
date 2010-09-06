@@ -10,9 +10,17 @@ import MarkupModel._
 class MarkupParser extends JavaTokenParsers with RegexParsers {
   override def skipWhitespace = false
   def markup: Parser[Body] = body ^^ { case b => Body(b) }
-  def body: Parser[List[Element]] = rep(verb | block | header | para | blankline) ^^ {
+  def body: Parser[List[Element]] = rep(list | verb | block | header | para | blankline) ^^ {
     case children => children.filter(_.isInstanceOf[Element]).map(_.asInstanceOf[Element])
   }
+  def list:Parser[Element] = orderedList | unorderedList
+  def orderedList:Parser[OrderedList] = rep1(repN(2, " ") ~ "# " ~ item) ^^ {
+    case list => OrderedList(list.map(_ match {case b~s~i => i}))
+  }
+  def unorderedList:Parser[UnorderedList] = rep1(repN(2, " ") ~ "- " ~ item) ^^ {
+    case list => UnorderedList(list.map(_ match {case b~s~i => i}))
+  }
+  def item:Parser[ListItem] = para ^^ {case p => ListItem(p)}
   def verb:Parser[Verb] = repN(3, " ")~rawText ^^ { case space~content => Verb(content) }
   def block:Parser[Block] = repN(2, " ")~rep(para) ^^ { case space~content => Block(content) }
   def header: Parser[Header] = rep("*") ~ " " ~ text ^^ { case h ~ s ~ t => Header(h.size, t) }
