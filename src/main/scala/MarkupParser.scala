@@ -21,6 +21,6 @@ class MarkupParser extends JavaTokenParsers with RegexParsers {
   def text: Parser[Text] = rep1(contentChar) ^^ { case chars => Text(chars.mkString.trim) }
   def blankline: Parser[String] = newline ^^ { case n => "[blank]" }
   def line: Parser[String] = text ~ newline ^^ { case c ~ n1 => c.toString }
-  def contentChar: Parser[Any] = """[a-z]""".r | " "
+  def contentChar: Parser[Any] = """[\w\.,]""".r | " "
   def newline: Parser[Any] = "\u000D\u000A" | "\u000D" | "\u000A"
 }

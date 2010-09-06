@@ -5,6 +5,9 @@ import org.scalatest.matchers.ShouldMatchers
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 import MarkupModel._
+import java.io.File
+import scala.io.Source
+import scala.xml.XML
 
 @RunWith(classOf[JUnitRunner])
 class MarkupParserSpec extends MarkupParser with Spec with ShouldMatchers {
@@ -12,7 +15,7 @@ class MarkupParserSpec extends MarkupParser with Spec with ShouldMatchers {
   val input = """
 * the first header
 
-a first paragraph
+a first paragraph.
 
   some famous words
 
@@ -20,6 +23,8 @@ a first paragraph
 
 and another
 """
+
+  val pretty = new PrettyPrinter(200, 2)
 
   describe("The Markup language") {
     it("uses CR (U+000D), CR/LF, (U+000D U+000A), or LF (U+000A) for line termination") {
@@ -34,9 +39,9 @@ and another
       expect(
         Body(List(
           Header(1, Text("the first header")),
-          Para(List(Text("a first paragraph"))),
+          Para(List(Text("a first paragraph."))),
           Block(List(
-              Para(List(Text("some famous words"))))),
+            Para(List(Text("some famous words"))))),
           Header(2, Text("the second header")),
           Para(List(Text("and another")))))
         ) {
@@ -47,10 +52,9 @@ and another
 
   describe("The Markup model") {
     it("can be exported to an XML representation") {
-      val pretty = new PrettyPrinter(200, 2)
       val xml = <body>
                   <h1>the first header</h1>
-                  <p>a first paragraph</p>
+                  <p>a first paragraph.</p>
                   <blockquote>
                     <p>some famous words</p>
                   </blockquote>
@@ -61,6 +65,21 @@ and another
         val res = parseAll(markup, input).get
         println(pretty format res.toXml)
         pretty format res.toXml
+      }
+    }
+    it("corresponds to the samples given in files") {
+      val folder = new File("src/test/resources")
+      for (
+        file <- folder.listFiles;
+        if file.getName.endsWith(".txt");
+        txt = file;
+        xml = new File(txt.getAbsolutePath.replace(".txt", ".xml"))
+      ) {
+        print("[Testing] %s ".format(txt.getName))
+        val parsed = parseAll(markup, Source.fromFile(txt).mkString)
+        val correct = XML.loadFile(xml)
+        expect(pretty format correct) {pretty format parsed.get.toXml}
+        println("[OK]")
       }
     }
   }
