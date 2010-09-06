@@ -12,6 +12,10 @@ object MarkupModel {
     override def toXml = <body>{ children.map(_.toXml) }</body>
   }
   
+  case class Verb(content: Text) extends Element(Nil){
+    override def toXml = <pre>{ content.toXml }</pre>
+  }
+  
   case class Block(children: List[Element]) extends Element(children){
     override def toXml = <blockquote>{ children.map(_.toXml) }</blockquote>
   }
