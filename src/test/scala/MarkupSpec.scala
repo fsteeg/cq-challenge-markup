@@ -5,6 +5,7 @@ import org.scalatest.matchers.ShouldMatchers
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
 import MarkupModel._
+import MarkupBackend._
 import java.io.File
 import scala.io.Source
 import scala.xml.XML
@@ -63,8 +64,8 @@ and another
                 </body>
       expect(pretty format xml) {
         val res = parseAll(markup, input).get
-        println(pretty format res.toXml)
-        pretty format res.toXml
+        println(pretty format toXml(res))
+        pretty format toXml(res)
       }
     }
     it("corresponds to the samples given in files") {
@@ -78,7 +79,7 @@ and another
         print("[Testing] %s ".format(txt.getName))
         val parsed = parseAll(markup, Source.fromFile(txt).mkString)
         val correct = XML.loadFile(xml)
-        expect(pretty format correct) {pretty format parsed.get.toXml}
+        expect(pretty format correct) {pretty format toXml(parsed.get)}
         println("[OK]")
       }
     }
