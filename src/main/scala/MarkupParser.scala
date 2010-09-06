@@ -16,11 +16,11 @@ class MarkupParser extends JavaTokenParsers with RegexParsers {
   def verb:Parser[Verb] = repN(3, " ")~rawText ^^ { case space~content => Verb(content) }
   def block:Parser[Block] = repN(2, " ")~rep(para) ^^ { case space~content => Block(content) }
   def header: Parser[Header] = rep("*") ~ " " ~ text ^^ { case h ~ s ~ t => Header(h.size, t) }
-  def para: Parser[Para] = text ~ newline ^^ { case c ~ n => Para(List(c)) }
-  def text: Parser[Text] = rep1(contentChar) ^^ { case chars => Text(chars.mkString.trim) }
+  def para: Parser[Para] = text ~ opt(blankline) ^^ { case c ~ n => Para(List(c)) }
+  def text: Parser[Text] = rep1(line) ^^ { case chars => Text(chars.mkString(" ").trim) }
   def blankline: Parser[String] = newline ^^ { case n => "[blank]" }
-  def line: Parser[String] = text ~ newline ^^ { case c ~ n1 => c.toString }
-  def contentChar: Parser[Any] = """[\w\.,]""".r | " "
+  def line: Parser[String] = rep1(contentChar) ~ newline ^^ { case c ~ n1 => c.mkString }
+  def contentChar: Parser[Any] = """[\w\.,;'-]""".r | " "
   def rawText: Parser[Text] = rep1(raw) ^^ { case text => Text(text.mkString.trim) }
   def raw: Parser[Any] = """.""".r | whiteSpace
   def newline: Parser[Any] = "\u000D\u000A" | "\u000D" | "\u000A"

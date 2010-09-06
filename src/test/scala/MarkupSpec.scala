@@ -46,7 +46,8 @@ and another
           Header(2, Text("the second header")),
           Para(List(Text("and another")))))
         ) {
-        parseAll(markup, input).get
+        val res = parseAll(markup, input)
+        res.getOrElse(res)
       }
     }
   }
@@ -69,17 +70,20 @@ and another
       }
     }
     it("corresponds to the samples given in files") {
-      val folder = new File("src/test/resources")
+      val folder = new File("tests")
       for (
         file <- folder.listFiles;
         if file.getName.endsWith(".txt");
         txt = file;
         xml = new File(txt.getAbsolutePath.replace(".txt", ".xml"))
       ) {
-        print("[Testing] %s ".format(txt.getName))
         val parsed = parseAll(markup, Source.fromFile(txt).mkString)
+        println("Parsed: " + parsed)
+        val parsedXml = pretty format toXml(parsed.get)
+        println("Output: " + parsedXml)
         val correct = XML.loadFile(xml)
-        expect(pretty format correct) {pretty format toXml(parsed.get)}
+        print("[Testing] %s ".format(txt.getName))
+        expect(pretty format correct) {parsedXml}
         println("[OK]")
       }
     }
