@@ -39,14 +39,14 @@ and another
     it("can parse markup input into an internal tree representation") {
       expect(
         Body(List(
-          Header(1, Text("the first header")),
-          Para(List(Text("a first paragraph."))),
-          Block(List(
-            Para(List(Text("some famous words"))))),
-          Header(2, Text("the second header")),
-          Para(List(Text("and another")))))
+          H(1, "the first header"),
+          P("a first paragraph."),
+          BlockQuote(List(
+            P("some famous words"))),
+          H(2, "the second header"),
+          P("and another")))
         ) {
-        val res = parseAll(markup, input)
+        val res = parseAll(body, input)
         res.getOrElse(res)
       }
     }
@@ -64,7 +64,7 @@ and another
                   <p>and another</p>
                 </body>
       expect(pretty format xml) {
-        val res = parseAll(markup, input).get
+        val res = parseAll(body, input).get
         println(pretty format toXml(res))
         pretty format toXml(res)
       }
@@ -77,13 +77,13 @@ and another
         txt = file;
         xml = new File(txt.getAbsolutePath.replace(".txt", ".xml"))
       ) {
-        val parsed = parseAll(markup, Source.fromFile(txt).mkString)
+        val parsed = parseAll(body, Source.fromFile(txt).mkString)
         println("Parsed: " + parsed)
         val parsedXml = pretty format toXml(parsed.get)
         println("Output: " + parsedXml)
         val correct = XML.loadFile(xml)
         print("[Testing] %s ".format(txt.getName))
-        expect(pretty format correct) {parsedXml}
+        expect(pretty format correct) { parsedXml }
         println("[OK]")
       }
     }
