@@ -40,11 +40,11 @@ and another
       expect(
         Body(List(
           H(1, "the first header"),
-          P("a first paragraph."),
+          P(List(TextMarkup("a first paragraph."))),
           BlockQuote(List(
-            P("some famous words"))),
+            P(List(TextMarkup("some famous words"))))),
           H(2, "the second header"),
-          P("and another")))
+          P(List(TextMarkup("and another")))))
         ) {
         val res = parseAll(body, input)
         res.getOrElse(res)
@@ -79,11 +79,13 @@ and another
       ) {
         val parsed = parseAll(body, Source.fromFile(txt).mkString)
         println("Parsed: " + parsed)
-        val parsedXml = pretty format toXml(parsed.get)
-        println("Output: " + parsedXml)
+        val parsedXmlSpec = pretty format toXml(parsed.get)
+        val parsedXmlSample = pretty format toXmlSample(parsed.get)
+        println("Output: " + parsedXmlSpec)
         val correct = XML.loadFile(xml)
         print("[Testing] %s ".format(txt.getName))
-        expect(pretty format correct) { parsedXml }
+        expect(pretty format correct) { parsedXmlSpec }
+        expect(pretty format correct) { parsedXmlSample }
         println("[OK]")
       }
     }

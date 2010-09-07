@@ -5,14 +5,24 @@ import scala.xml.Node
 import MarkupModel._
 
 object MarkupBackend {
+
+  /* The simple XML back-end according to the specification: */
   def toXml(elem: Markup): Node = elem match {
-    case body: Body => <body>{ body.items.map(toXml) }</body>
-    case pre: Pre => <pre>{ pre.text }</pre>
-    case blockquote: BlockQuote => <blockquote>{ blockquote.items.map(toXml) }</blockquote>
-    case h: H => Elem(null, h.tag, Null, xml.TopScope, Text(h.text))
-    case p: P => <p>{ p.text }</p>
-    case ol: Ol => <ol>{ ol.items.map(toXml) }</ol>
-    case ul: Ul => <ul>{ ul.items.map(toXml) }</ul>
-    case li: Li => <li>{ li.items.map(toXml) }</li>
+    case TextMarkup(text) => Text(text)
+    case m@_ => Elem(null, m.tag, Null, xml.TopScope, m.children.map(toXml): _*)
   }
+
+  /* A complete sample XML back-end that explicitly defines a mapping for every element: */
+  def toXmlSample(elem: Markup): Node = elem match {
+    case TextMarkup(text) => Text(text)
+    case Body(items) => <body>{ items.map(toXmlSample) }</body>
+    case Pre(text) => <pre>{ text }</pre>
+    case BlockQuote(items) => <blockquote>{ items.map(toXmlSample) }</blockquote>
+    case P(items) => <p>{ items.map(toXmlSample) }</p>
+    case Ol(items) => <ol>{ items.map(toXmlSample) }</ol>
+    case Ul(items) => <ul>{ items.map(toXmlSample) }</ul>
+    case Li(items) => <li>{ items.map(toXmlSample) }</li>
+    case h@H(level, text) => Elem(null, h.tag, Null, xml.TopScope, Text(text))
+  }
+
 }
