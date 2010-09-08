@@ -13,8 +13,7 @@ import scala.xml.XML
 @RunWith(classOf[JUnitRunner])
 class MarkupParserSpec extends MarkupParser with Spec with ShouldMatchers {
 
-  val input = """
-* the first header
+  val input = """* the first header
 
 a first paragraph.
 
@@ -23,6 +22,7 @@ a first paragraph.
 ** the second header
 
 and another
+
 """
 
   val pretty = new PrettyPrinter(200, 2)
@@ -51,7 +51,6 @@ and another
       }
     }
   }
-
   describe("The Markup model") {
     it("can be exported to an XML representation") {
       val xml = <body>
@@ -77,12 +76,15 @@ and another
         txt = file;
         xml = new File(txt.getAbsolutePath.replace(".txt", ".xml"))
       ) {
-        val parsed = parseAll(body, Source.fromFile(txt).mkString)
+        val input = Source.fromFile(txt).mkString
+        println("Input:\n" + input)
+        val parsed = parseAll(body, input)
         println("Parsed: " + parsed)
         val parsedXmlSpec = pretty format toXml(parsed.get)
         val parsedXmlSample = pretty format toXmlSample(parsed.get)
         println("Output: " + parsedXmlSpec)
         val correct = XML.loadFile(xml)
+        println("Correct: " + correct)
         print("[Testing] %s ".format(txt.getName))
         expect(pretty format correct) { parsedXmlSpec }
         expect(pretty format correct) { parsedXmlSample }
@@ -90,5 +92,4 @@ and another
       }
     }
   }
-
 }
