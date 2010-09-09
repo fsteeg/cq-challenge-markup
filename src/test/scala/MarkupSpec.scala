@@ -29,9 +29,9 @@ and another
 
   describe("The Markup language") {
     it("uses CR (U+000D), CR/LF, (U+000D U+000A), or LF (U+000A) for line termination") {
-      expect(classOf[Success[Any]]) { parseAll(newline, "\u000D").getClass }
-      expect(classOf[Success[Any]]) { parseAll(newline, "\u000D\u000A").getClass }
-      expect(classOf[Success[Any]]) { parseAll(newline, "\u000A").getClass }
+      expect(classOf[Success[Any]]) { parseAll(newLine, "\u000D").getClass }
+      expect(classOf[Success[Any]]) { parseAll(newLine, "\u000D\u000A").getClass }
+      expect(classOf[Success[Any]]) { parseAll(newLine, "\u000A").getClass }
     }
   }
 

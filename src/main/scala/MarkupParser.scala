@@ -20,29 +20,33 @@ class MarkupParser extends MarkupLexer {
   }
   def li: Parser[Li] = p ^^ { case p => Li(List(p)) }
 
-  def pre: Parser[Pre] = repN(3, " ") ~ rawText ^^ { case s ~ c => Pre(c) }
-  def h: Parser[H] = rep1("*") ~ " " ~ text ^^ { case h ~ s ~ t => H(h.size, t) }
-  def p: Parser[P] = text ~ opt(newline) ^^ { case c ~ n => P(List(TextMarkup(c))) }
+  def h: Parser[H] = rep1("*") ~ " " ~ para ^^ { case h ~ s ~ t => H(h.size, t) }
+  def p: Parser[P] = para ~ opt(newLine) ^^ { case c ~ n => P(List(TextMarkup(c))) }
+  
+  def pre: Parser[Pre] = block(3) ^^ { case b => Pre(b) }
 
   def blockquote: Parser[BlockQuote] = block(2) ^^ {
-    case b => { BlockQuote(parseAll(body, b).get.items) }
+    case b => BlockQuote(parseAll(body, if (b.endsWith("\n")) b else b + "\n").get.items)
   }
-  def block(n: Int): Parser[String] = rep1(repN(n, " ") ~ line ~ opt(newline)) ^^ {
-    case text => text.map(_ match {
-      case blanks ~ content ~ None => content
-      case blanks ~ content ~ nl => content + "\n"
-    }).mkString("\n") + "\n"
+  
+  def block(n: Int): Parser[String] = rep1(repN(n, " ") ~ rawLine ~ opt(newLine)) ^^ {
+    case text => {
+      text.map(_ match {
+        case blanks ~ content ~ None => content
+        case blanks ~ content ~ nl => content + "\n"
+      }).mkString("\n")
+    }
   }
 
 }
 
 class MarkupLexer extends JavaTokenParsers with RegexParsers {
   override def skipWhitespace = false
-  def text: Parser[String] = rep1(line) ~ opt(newline) ^^ { case chars ~ nl => chars.mkString(" ").trim }
-  def line: Parser[String] = rep1sep(word, " ") ~ newline ^^ { case c ~ n1 => c.mkString(" ") }
+  def para: Parser[String] = rep1(line) ~ opt(newLine) ^^ { case chars ~ _ => chars.mkString(" ").trim }
+  def line: Parser[String] = rep1sep(word, " ") ~ newLine ^^ { case c ~ n1 => c.mkString(" ") }
   def word: Parser[String] = rep1(contentChar) ^^ { case chars => chars.mkString }
-  def contentChar: Parser[Any] = """[\w\.,;'-]""".r
-  def rawText: Parser[String] = rep1(raw) ^^ { case text => text.mkString.trim }
-  def raw: Parser[Any] = """.""".r | whiteSpace
-  def newline: Parser[Any] = "\u000D\u000A" | "\u000D" | "\u000A"
+  def contentChar: Parser[Any] = """[\w\.,;'-<>&]""".r
+  def newLine: Parser[Any] = "\u000D\u000A" | "\u000D" | "\u000A"
+  def rawLine: Parser[String] = rep1(raw) ~ newLine ^^ { case c ~ n1 => c.mkString }
+  def raw: Parser[Any] = """.""".r
 }
