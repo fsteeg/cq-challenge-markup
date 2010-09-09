@@ -11,7 +11,7 @@ object MarkupModel {
   case class BlockQuote(items: List[Markup]) extends Markup(items)
   case class Ol(items: List[Li]) extends Markup(items)
   case class Ul(items: List[Li]) extends Markup(items)
-  case class Li(items: List[P]) extends Markup(items)
+  case class Li(items: List[Markup]) extends Markup(items)
   case class Pre(text: String) extends Markup(List(TextMarkup(text)))
   case class H(level: Int, text: String) extends Markup(List(TextMarkup(text))) { override def tag = super.tag + level }
   case class P(items: List[Markup]) extends Markup(items)
