@@ -39,11 +39,11 @@ and another
     it("can parse markup input into an internal tree representation") {
       expect(
         Body(List(
-          H(1, "the first header"),
+          H(1, List(TextMarkup("the first header"))),
           P(List(TextMarkup("a first paragraph."))),
           BlockQuote(List(
             P(List(TextMarkup("some famous words"))))),
-          H(2, "the second header"),
+          H(2, List(TextMarkup("the second header"))),
           P(List(TextMarkup("and another")))))
         ) {
         val res = parseAll(body, input)

@@ -13,6 +13,7 @@ object MarkupModel {
   case class Ul(items: List[Li]) extends Markup(items)
   case class Li(items: List[Markup]) extends Markup(items)
   case class Pre(text: String) extends Markup(List(TextMarkup(text)))
-  case class H(level: Int, text: String) extends Markup(List(TextMarkup(text))) { override def tag = super.tag + level }
+  case class H(level: Int, body: List[Markup]) extends Markup(body) { override def tag = super.tag + level }
   case class P(items: List[Markup]) extends Markup(items)
+  case class Tagged(name: String, body: List[Markup]) extends Markup(body) { override def tag = name }
 }

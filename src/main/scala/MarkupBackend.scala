@@ -22,7 +22,8 @@ object MarkupBackend {
     case Ol(items) => <ol>{ items.map(toXmlSample) }</ol>
     case Ul(items) => <ul>{ items.map(toXmlSample) }</ul>
     case Li(items) => <li>{ items.map(toXmlSample) }</li>
-    case h@H(level, text) => Elem(null, h.tag, Null, xml.TopScope, Text(text))
+    case h@H(level, body) => Elem(null, h.tag, Null, xml.TopScope, body.map(toXmlSample):_*)
+    case t@Tagged(name, body) => Elem(null, t.tag, Null, xml.TopScope, body.map(toXmlSample):_*)
   }
 
 }
