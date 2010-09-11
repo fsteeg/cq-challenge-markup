@@ -10,7 +10,8 @@ import MarkupModel._
 
 class MarkupParser extends MarkupLexer {
 
-  def body: Parser[Body] = rep(h | pre | list | blockquote | p) ^^ { case c => Body(c) }
+  def body(raw:Boolean): Parser[Body] = rep(h | pre | list | blockquote | p(raw)) ^^ { case c => Body(c) }
+  def body: Parser[Body] = body(true)
 
   def h: Parser[H] = rep1("*") ~ " " ~ textPara ^^ {
     case h ~ s ~ t => H(h.size, List(TextMarkup(t)))
@@ -32,7 +33,7 @@ class MarkupParser extends MarkupLexer {
   private def ols: Parser[List[Li]] = rep1("# " ~ li) ^^ { case list => list.map(_ match { case s ~ i => i }) }
   private def uls: Parser[List[Li]] = rep1("- " ~ li) ^^ { case list => list.map(_ match { case s ~ i => i }) }
 
-  private def li: Parser[Li] = line ~ opt(newLine) ~ opt(block(2)) ~ opt(newLine) ^^ {
+  private def li: Parser[Li] = rawLine ~ opt(newLine) ~ opt(block(2)) ~ opt(newLine) ^^ {
     case first ~ _ ~ None ~ _ => Li(parseInternal(body, first).children)
     case first ~ _ ~ rest ~ _ => Li(parseInternal(body, first + "\n\n" + rest.get).children)
   }
@@ -41,7 +42,7 @@ class MarkupParser extends MarkupLexer {
     case b => BlockQuote(parseInternal(body, b).children)
   }
 
-  private def block(n: Int): Parser[String] = rep1(repN(n, " ") ~ line ~ opt(newLine) ~ opt(newLine)) ^^ {
+  private def block(n: Int): Parser[String] = rep1(repN(n, " ") ~ rawLine ~ opt(newLine) ~ opt(newLine)) ^^ {
     case text => {
       text.map(_ match {
         case blanks ~ content ~ None ~ _ => content
@@ -50,18 +51,24 @@ class MarkupParser extends MarkupLexer {
     }
   }
 
-  def p: Parser[P] = rawPara ~ opt(newLine) ^^ { case raw ~ _ => P(parseInternal(para, raw)) }
+  def p(raw: Boolean): Parser[P] = (if (raw) rawPara else textWord) ~ opt(newLine) ^^ {
+    case raw ~ _ => P(parseInternal(para, raw))
+  }
 
-  private def para: Parser[List[Markup]] = rep1(textWord | tagged) ~ opt(newLine) ^^ {
+  private def para: Parser[List[Markup]] = rep1(textWord | taggedSubdoc | taggedTextual) ~ opt(newLine) ^^ {
     case textSections ~ _ => textSections.map(_ match {
       case t: String => TextMarkup(t)
       case sub@Tagged(n, c) => sub
     })
   }
 
-  private def tagged: Parser[Tagged] = """\""" ~ tagName ~ "{" ~ para ~ "}" ^^ {
-    case _ ~ tag ~ _ ~ r ~ _ => Tagged(tag, r)
-  }
+  private def taggedSubdoc: Parser[Tagged] = tagged(subdocTag, subdoc)
+  private def taggedTextual: Parser[Tagged] = tagged(tagName, para)
+  
+  private def subdoc: Parser[List[Markup]] = body(false) ^^ { case c => c.children }
+
+  private def tagged(tag: Parser[String], content: Parser[List[Markup]]) =
+    """\""" ~ tag ~ "{" ~ content ~ "}" ^^ { case _ ~ tag ~ _ ~ c ~ _ => Tagged(tag, c) }
 
   private def parseInternal[T](e: Parser[T], s: String): T =
     super.parseAll(e, if (s.endsWith("\n")) s else s + "\n") match {
@@ -72,13 +79,15 @@ class MarkupParser extends MarkupLexer {
 
 class MarkupLexer extends JavaTokenParsers with RegexParsers {
   override def skipWhitespace = false
-  def line: Parser[String] = rawText ~ newLine ^^ { case c ~ n1 => c.mkString }
+  def rawLine: Parser[String] = rawText ~ newLine ^^ { case c ~ n1 => c.mkString }
   def rawPara: Parser[String] = rep1sep(rawText, newLine) ~ newLine ^^ { case raw ~ _ => raw.mkString(" ") }
   def rawText: Parser[String] = rep1(rawChar) ^^ { case c => c.mkString }
   def rawChar: Parser[Any] = """.""".r
-  def textPara: Parser[String] = rep1(line) ~ opt(newLine) ^^ { case chars ~ _ => chars.mkString(" ").trim }
+  def textPara: Parser[String] = rep1(textLine) ~ opt(newLine) ^^ { case chars ~ _ => chars.mkString(" ").trim }
+  def textLine: Parser[String] = textWord ~ newLine ^^ { case c ~ n1 => c.mkString }
   def textWord: Parser[String] = rep1(textChar) ^^ { case chars => chars.mkString }
   def textChar: Parser[Any] = """[\w\.,;'-<>& ]""".r
+  def subdocTag: Parser[String] = "note" ^^ { case tag => tag } // parse tagged markup as subdocument
   def tagName: Parser[String] = rep1("""[\d\w-.+]""".r) ^^ { case chars => chars.mkString }
   def newLine: Parser[Any] = "\u000D\u000A" | "\u000D" | "\u000A"
 }
