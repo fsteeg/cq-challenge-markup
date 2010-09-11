@@ -10,8 +10,7 @@ import MarkupModel._
 
 class MarkupParser extends MarkupLexer {
 
-  def body(raw:Boolean): Parser[Body] = rep(h | pre | list | blockquote | p(raw)) ^^ { case c => Body(c) }
-  def body: Parser[Body] = body(true)
+  def body: Parser[Body] = rep(h | pre | list | blockquote | p) ^^ { case c => Body(c) }
 
   def h: Parser[H] = rep1("*") ~ " " ~ textPara ^^ {
     case h ~ s ~ t => H(h.size, List(TextMarkup(t)))
@@ -41,7 +40,7 @@ class MarkupParser extends MarkupLexer {
   def blockquote: Parser[BlockQuote] = block(2) ^^ {
     case b => BlockQuote(parseInternal(body, b).children)
   }
-
+  
   private def block(n: Int): Parser[String] = rep1(repN(n, " ") ~ rawLine ~ opt(newLine) ~ opt(newLine)) ^^ {
     case text => {
       text.map(_ match {
@@ -51,11 +50,9 @@ class MarkupParser extends MarkupLexer {
     }
   }
 
-  def p(raw: Boolean): Parser[P] = (if (raw) rawPara else textWord) ~ opt(newLine) ^^ {
-    case raw ~ _ => P(parseInternal(para, raw))
-  }
+  def p: Parser[P] = para ~ opt(newLine) ^^ { case c ~ _ => P(c) }
 
-  private def para: Parser[List[Markup]] = rep1(textWord | taggedSubdoc | taggedTextual) ~ opt(newLine) ^^ {
+  private def para: Parser[List[Markup]] = rep1(textContent | taggedSubdoc | taggedTextual) ~ opt(newLine) ^^ {
     case textSections ~ _ => textSections.map(_ match {
       case t: String => TextMarkup(t)
       case sub@Tagged(n, c) => sub
@@ -64,9 +61,7 @@ class MarkupParser extends MarkupLexer {
 
   private def taggedSubdoc: Parser[Tagged] = tagged(subdocTag, subdoc)
   private def taggedTextual: Parser[Tagged] = tagged(tagName, para)
-  
-  private def subdoc: Parser[List[Markup]] = body(false) ^^ { case c => c.children }
-
+  private def subdoc: Parser[List[Markup]] = body ^^ { case c => c.children }
   private def tagged(tag: Parser[String], content: Parser[List[Markup]]) =
     """\""" ~ tag ~ "{" ~ content ~ "}" ^^ { case _ ~ tag ~ _ ~ c ~ _ => Tagged(tag, c) }
 
@@ -83,11 +78,12 @@ class MarkupLexer extends JavaTokenParsers with RegexParsers {
   def rawPara: Parser[String] = rep1sep(rawText, newLine) ~ newLine ^^ { case raw ~ _ => raw.mkString(" ") }
   def rawText: Parser[String] = rep1(rawChar) ^^ { case c => c.mkString }
   def rawChar: Parser[Any] = """.""".r
+  def textContent: Parser[String] = rep1sep(textWord, newLine) ~ opt(newLine) ^^ { case c ~ _ => c.mkString(" ") }
   def textPara: Parser[String] = rep1(textLine) ~ opt(newLine) ^^ { case chars ~ _ => chars.mkString(" ").trim }
   def textLine: Parser[String] = textWord ~ newLine ^^ { case c ~ n1 => c.mkString }
   def textWord: Parser[String] = rep1(textChar) ^^ { case chars => chars.mkString }
   def textChar: Parser[Any] = """[\w\.,;'-<>& ]""".r
-  def subdocTag: Parser[String] = "note" ^^ { case tag => tag } // parse tagged markup as subdocument
+  def subdocTag: Parser[String] = "note"
   def tagName: Parser[String] = rep1("""[\d\w-.+]""".r) ^^ { case chars => chars.mkString }
   def newLine: Parser[Any] = "\u000D\u000A" | "\u000D" | "\u000A"
 }
