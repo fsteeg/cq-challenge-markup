@@ -1,3 +1,4 @@
+import scala.util.matching.Regex
 import scala.collection.mutable.ListBuffer
 import org.scalatest.Spec
 import org.scalatest.matchers.ShouldMatchers
@@ -8,7 +9,7 @@ import scala.util.parsing.combinator.JavaTokenParsers
 import scala.xml.Node
 import MarkupModel._
 
-class MarkupParser extends MarkupLexer {
+class MarkupParser(sub: Regex = "note".r) extends MarkupLexer {
 
   def body: Parser[Body] = rep(h | pre | list | blockquote | p) ^^ { case c => Body(c) }
 
@@ -40,7 +41,7 @@ class MarkupParser extends MarkupLexer {
   def blockquote: Parser[BlockQuote] = block(2) ^^ {
     case b => BlockQuote(parseInternal(body, b).children)
   }
-  
+
   private def block(n: Int): Parser[String] = rep1(repN(n, " ") ~ rawLine ~ opt(newLine) ~ opt(newLine)) ^^ {
     case text => {
       text.map(_ match {
@@ -59,8 +60,8 @@ class MarkupParser extends MarkupLexer {
     })
   }
 
-  private def taggedSubdoc: Parser[Tagged] = tagged(subdocTag, subdoc)
   private def taggedTextual: Parser[Tagged] = tagged(tagName, para)
+  private def taggedSubdoc: Parser[Tagged] = tagged(sub, subdoc)
   private def subdoc: Parser[List[Markup]] = body ^^ { case c => c.children }
   private def tagged(tag: Parser[String], content: Parser[List[Markup]]) =
     """\""" ~ tag ~ "{" ~ content ~ "}" ^^ { case _ ~ tag ~ _ ~ c ~ _ => Tagged(tag, c) }
@@ -83,7 +84,6 @@ class MarkupLexer extends JavaTokenParsers with RegexParsers {
   def textLine: Parser[String] = textWord ~ newLine ^^ { case c ~ n1 => c.mkString }
   def textWord: Parser[String] = rep1(textChar) ^^ { case chars => chars.mkString }
   def textChar: Parser[Any] = """[\w\.,;'-<>& ]""".r
-  def subdocTag: Parser[String] = "note"
   def tagName: Parser[String] = rep1("""[\d\w-.+]""".r) ^^ { case chars => chars.mkString }
   def newLine: Parser[Any] = "\u000D\u000A" | "\u000D" | "\u000A"
 }

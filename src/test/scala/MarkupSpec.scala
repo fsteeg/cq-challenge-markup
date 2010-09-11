@@ -50,7 +50,18 @@ and another
         res.getOrElse(res)
       }
     }
+    it("parses 'note' tags as sub-documents in its default configuration") {
+      expect(<p><note><p>Text</p></note></p>) { toXml(parseAll(p, """\note{Text}""").get) }
+      expect(<p><foot>Text</foot></p>) { toXml(parseAll(p, """\foot{Text}""").get) }
+    }
+    it("can parse custom tags as sub-documents if specified in a pattern"){
+      object CustomParser extends MarkupParser(sub = "note|foot".r) {
+        expect(<p><note><p>Text</p></note></p>) { toXml(parseAll(p, """\note{Text}""").get) }
+        expect(<p><foot><p>Text</p></foot></p>) { toXml(parseAll(p, """\foot{Text}""").get) }
+      }
+    }
   }
+  
   describe("The Markup model") {
     it("can be exported to an XML representation") {
       val xml = <body>
