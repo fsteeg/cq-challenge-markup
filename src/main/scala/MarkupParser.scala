@@ -11,7 +11,7 @@ import MarkupModel._
 
 class MarkupParser(sub: Regex = "note".r) extends MarkupLexer {
 
-  def parseMarkup(m: String): Body = checked(parseAll(body, stripModeLines(m)))
+  def parseMarkup(m: String): Body = checked(parseAll(body, stripped(m)))
 
   def body: Parser[Body] = rep(h | pre | list | blockquote | linkDef | p) ^^ { case c => Body(c) }
 
@@ -61,11 +61,15 @@ class MarkupParser(sub: Regex = "note".r) extends MarkupLexer {
       })
     }
 
-  def linkWithKey: Parser[Link] = "[" ~ tagName ~ "|" ~ tagName ~ "]" ^^ {
-    case _ ~ t ~ _ ~ k ~ _ => Link(t, Key(k))
+  def linkWithKey: Parser[Link] = "[" ~ label ~ "|" ~ tagName ~ "]" ^^ {
+    case _ ~ t ~ _ ~ k ~ _ => Link(List(t, Key(k)))
   }
 
-  def linkSimple: Parser[LinkSimple] = "[" ~ tagName ~ "]" ^^ { case _ ~ t ~ _ => LinkSimple(t) }
+  def linkSimple: Parser[Link] = "[" ~ label ~ "]" ^^ { case _ ~ t ~ _ => Link(List(t)) }
+
+  def label: Parser[Markup] = taggedTextual | rep1("""[^|\]]""".r) ^^ {
+    case chars => TextMarkup(chars.mkString)
+  }
 
   def linkDef: Parser[LinkDef] =
     linkSimple ~ rep(" ") ~ "<" ~ url ~ ">" ~ opt(newLine) ~ opt(newLine) ^^ {
@@ -86,8 +90,10 @@ class MarkupParser(sub: Regex = "note".r) extends MarkupLexer {
     case Success(result, _) => result
     case no@_ => throw new IllegalArgumentException(no.toString)
   }
-  
-  private def stripModeLines(s:String) = """^-\*-.+\n{1,2}""".r.replaceAllIn(s,"")
+
+  private def stripped(s: String) = stripModeLines(stripTrailing(s))
+  private def stripModeLines(s: String) = """^-\*-.+\n{1,2}""".r.replaceAllIn(s, "")
+  private def stripTrailing(s: String) = """[\s]+\n$""".r.replaceAllIn(s, "")
 }
 
 class MarkupLexer extends JavaTokenParsers with RegexParsers {
@@ -100,9 +106,9 @@ class MarkupLexer extends JavaTokenParsers with RegexParsers {
   def textPara = rep1(textLine) ~ opt(newLine) ^^ { case chars ~ _ => chars.mkString(" ").trim }
   def textLine = textWord ~ newLine ^^ { case c ~ _ => c.mkString }
   def textWord = rep1(textChar) ^^ { case chars => chars.mkString }
-  def textChar = """[^\\{}\[\]\n]""".r | """\""" ~ escapedChar ^^ { case _ ~ c => c }
+  def textChar = """[^\\{}\[\n]""".r | """\""" ~ escapedChar ^^ { case _ ~ c => c }
   def escapedChar = requiredEscapes | optionalEscapes
-  def requiredEscapes = """\""" | "{" | "}" | "[" | "]"
+  def requiredEscapes = """\""" | "{" | "}" | "["
   def optionalEscapes = "*" | "-" | "#"
   def tagName = rep1("""[\d\w-.+]""".r) ^^ { case chars => chars.mkString }
   def newLine = "\u000D\u000A" | "\u000D" | "\u000A"

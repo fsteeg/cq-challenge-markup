@@ -75,6 +75,12 @@ and another"""
         toXml(checked(parse)) 
       }
     }
+    it("can parse the text files included in the project"){
+      for (
+        file <- new File(".").listFiles;
+        if file.getName.endsWith(".txt")
+      ) { expect(classOf[Body]) { parseMarkup(Source.fromFile(file).mkString).getClass } }
+    }
   }
 
   describe("The Markup model") {
