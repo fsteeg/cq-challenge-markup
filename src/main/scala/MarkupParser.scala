@@ -75,15 +75,18 @@ class MarkupParser(sub: Regex = "note".r) extends MarkupLexer {
 
 class MarkupLexer extends JavaTokenParsers with RegexParsers {
   override def skipWhitespace = false
-  def rawLine: Parser[String] = rawText ~ newLine ^^ { case c ~ n1 => c.mkString }
+  def rawLine: Parser[String] = rawText ~ newLine ^^ { case c ~ _ => c.mkString }
   def rawPara: Parser[String] = rep1sep(rawText, newLine) ~ newLine ^^ { case raw ~ _ => raw.mkString(" ") }
   def rawText: Parser[String] = rep1(rawChar) ^^ { case c => c.mkString }
   def rawChar: Parser[Any] = """.""".r
   def textContent: Parser[String] = rep1sep(textWord, newLine) ~ opt(newLine) ^^ { case c ~ _ => c.mkString(" ") }
   def textPara: Parser[String] = rep1(textLine) ~ opt(newLine) ^^ { case chars ~ _ => chars.mkString(" ").trim }
-  def textLine: Parser[String] = textWord ~ newLine ^^ { case c ~ n1 => c.mkString }
+  def textLine: Parser[String] = textWord ~ newLine ^^ { case c ~ _ => c.mkString }
   def textWord: Parser[String] = rep1(textChar) ^^ { case chars => chars.mkString }
-  def textChar: Parser[Any] = """[\w\.,;'-<>& ]""".r
-  def tagName: Parser[String] = rep1("""[\d\w-.+]""".r) ^^ { case chars => chars.mkString }
+  def textChar: Parser[Any] = """[\w\.,;'-<>&\*# ]""".r | """\""" ~ escapedChar ^^ { case _ ~ c => c }
+  def escapedChar: Parser[String] = requiredEscapes | optionalEscapes
+  def requiredEscapes: Parser[String] = """\""" | "{" | "}"
+  def optionalEscapes: Parser[String] = "*" | "-" | "#"
+  def tagName = rep1("""[\d\w-.+]""".r) ^^ { case chars => chars.mkString }
   def newLine: Parser[Any] = "\u000D\u000A" | "\u000D" | "\u000A"
 }
