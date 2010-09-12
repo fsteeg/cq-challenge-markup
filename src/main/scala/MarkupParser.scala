@@ -11,7 +11,7 @@ import MarkupModel._
 
 class MarkupParser(sub: Regex = "note".r) extends MarkupLexer {
 
-  def parseMarkup(m: String): Body = checked(parseAll(body, m))
+  def parseMarkup(m: String): Body = checked(parseAll(body, stripModeLines(m)))
 
   def body: Parser[Body] = rep(h | pre | list | blockquote | linkDef | p) ^^ { case c => Body(c) }
 
@@ -86,6 +86,8 @@ class MarkupParser(sub: Regex = "note".r) extends MarkupLexer {
     case Success(result, _) => result
     case no@_ => throw new IllegalArgumentException(no.toString)
   }
+  
+  private def stripModeLines(s:String) = """^-\*-.+\n{1,2}""".r.replaceAllIn(s,"")
 }
 
 class MarkupLexer extends JavaTokenParsers with RegexParsers {
