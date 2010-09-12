@@ -84,7 +84,7 @@ class MarkupLexer extends JavaTokenParsers with RegexParsers {
   def textPara = rep1(textLine) ~ opt(newLine) ^^ { case chars ~ _ => chars.mkString(" ").trim }
   def textLine = textWord ~ newLine ^^ { case c ~ _ => c.mkString }
   def textWord = rep1(textChar) ^^ { case chars => chars.mkString }
-  def textChar = """[\w\.,;'-<>&\*# ]""".r | """\""" ~ escapedChar ^^ { case _ ~ c => c }
+  def textChar = """[^\\{}\n]""".r | """\""" ~ escapedChar ^^ { case _ ~ c => c } //"""[\w\.,;'-<>&\*# ]"""
   def escapedChar = requiredEscapes | optionalEscapes
   def requiredEscapes = """\""" | "{" | "}"
   def optionalEscapes = "*" | "-" | "#"
