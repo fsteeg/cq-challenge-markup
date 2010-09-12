@@ -10,10 +10,10 @@ import scala.xml.Node
 import MarkupModel._
 
 class MarkupParser(sub: Regex = "note".r) extends MarkupLexer {
-  
+
   def parseMarkup(m: String): Body = checked(parseAll(body, m))
 
-  def body: Parser[Body] = rep(h | pre | list | blockquote | p) ^^ { case c => Body(c) }
+  def body: Parser[Body] = rep(h | pre | list | blockquote | linkDef | p) ^^ { case c => Body(c) }
 
   def h: Parser[H] = rep1("*") ~ " " ~ para ^^ { case h ~ _ ~ p => H(h.size, p) }
 
@@ -53,12 +53,26 @@ class MarkupParser(sub: Regex = "note".r) extends MarkupLexer {
 
   def p: Parser[P] = para ~ opt(newLine) ^^ { case c ~ _ => P(c) }
 
-  private def para: Parser[List[Markup]] = rep1(textContent | taggedSubdoc | taggedTextual) ~ opt(newLine) ^^ {
-    case textSections ~ _ => textSections.map(_ match {
-      case t: String => TextMarkup(t)
-      case sub: Tagged => sub
-    })
+  private def para: Parser[List[Markup]] =
+    rep1(linkWithKey | linkSimple | textContent | taggedSubdoc | taggedTextual) ~ opt(newLine) ^^ {
+      case textSections ~ _ => textSections.map(_ match {
+        case t: String => TextMarkup(t)
+        case sub: Markup => sub
+      })
+    }
+
+  def linkWithKey: Parser[Link] = "[" ~ tagName ~ "|" ~ tagName ~ "]" ^^ {
+    case _ ~ t ~ _ ~ k ~ _ => Link(t, Key(k))
   }
+
+  def linkSimple: Parser[LinkSimple] = "[" ~ tagName ~ "]" ^^ { case _ ~ t ~ _ => LinkSimple(t) }
+
+  def linkDef: Parser[LinkDef] =
+    linkSimple ~ rep(" ") ~ "<" ~ url ~ ">" ~ opt(newLine) ~ opt(newLine) ^^ {
+      case link ~ _ ~ _ ~ url ~ _ ~ _ ~ _ => LinkDef(link, Url(url))
+    }
+
+  def url: Parser[String] = rep1("""[^<>]""".r) ^^ { case url => url.mkString }
 
   private def taggedTextual: Parser[Tagged] = tagged(tagName, para)
   private def taggedSubdoc: Parser[Tagged] = tagged(sub, subdoc)
@@ -68,7 +82,7 @@ class MarkupParser(sub: Regex = "note".r) extends MarkupLexer {
 
   private def parseInternal[T](e: Parser[T], s: String): T = checked(super.parseAll(e, s + "\n"))
 
-  private def checked[T](p: ParseResult[T]): T = p match {
+  def checked[T](p: ParseResult[T]): T = p match {
     case Success(result, _) => result
     case no@_ => throw new IllegalArgumentException(no.toString)
   }
@@ -84,9 +98,9 @@ class MarkupLexer extends JavaTokenParsers with RegexParsers {
   def textPara = rep1(textLine) ~ opt(newLine) ^^ { case chars ~ _ => chars.mkString(" ").trim }
   def textLine = textWord ~ newLine ^^ { case c ~ _ => c.mkString }
   def textWord = rep1(textChar) ^^ { case chars => chars.mkString }
-  def textChar = """[^\\{}\n]""".r | """\""" ~ escapedChar ^^ { case _ ~ c => c } //"""[\w\.,;'-<>&\*# ]"""
+  def textChar = """[^\\{}\[\]\n]""".r | """\""" ~ escapedChar ^^ { case _ ~ c => c }
   def escapedChar = requiredEscapes | optionalEscapes
-  def requiredEscapes = """\""" | "{" | "}"
+  def requiredEscapes = """\""" | "{" | "}" | "[" | "]"
   def optionalEscapes = "*" | "-" | "#"
   def tagName = rep1("""[\d\w-.+]""".r) ^^ { case chars => chars.mkString }
   def newLine = "\u000D\u000A" | "\u000D" | "\u000A"

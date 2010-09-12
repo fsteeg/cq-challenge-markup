@@ -57,6 +57,24 @@ and another"""
         expect(<p><foot><p>Text</p></foot></p>) { toXml(parseAll(p, """\foot{Text}""").get) }
       }
     }
+    it("supports simple links") {
+      expect(<link>text</link>) { 
+        val parse = parseAll(linkSimple, """[text]""")
+        toXml(checked(parse)) 
+      }
+    }
+    it("supports links with keys") {
+      expect(<link>text<key>key</key></link>) { 
+        val parse = parseAll(linkWithKey, """[text|key]""")
+        toXml(checked(parse)) 
+      }
+    }
+    it("supports link defs") {
+      expect(<link_def><link>text</link><url>http://www.example.com/text/</url></link_def>) { 
+        val parse = parseAll(linkDef, """[text] <http://www.example.com/text/>""")
+        toXml(checked(parse)) 
+      }
+    }
   }
 
   describe("The Markup model") {
@@ -100,5 +118,5 @@ and another"""
       }
     }
   }
-  
+
 }

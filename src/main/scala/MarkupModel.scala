@@ -16,4 +16,9 @@ object MarkupModel {
   case class H(level: Int, body: List[Markup]) extends Markup(body) { override def tag = super.tag + level }
   case class P(items: List[Markup]) extends Markup(items)
   case class Tagged(name: String, body: List[Markup]) extends Markup(body) { override def tag = name }
+  case class LinkSimple(text: String) extends Markup(List(TextMarkup(text))) { override def tag = "link" }
+  case class Link(text: String, key: Key) extends Markup(List(TextMarkup(text), key))
+  case class Key(text: String) extends Markup(List(TextMarkup(text)))
+  case class LinkDef(link: LinkSimple, url: Url) extends Markup(List(link, url)) {override def tag = "link_def" }
+  case class Url(text: String) extends Markup(List(TextMarkup(text)))
 }

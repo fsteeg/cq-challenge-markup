@@ -12,18 +12,13 @@ object MarkupBackend {
     case m@_ => Elem(null, m.tag, Null, xml.TopScope, m.children.map(toXml): _*)
   }
 
-  /* A complete sample XML back-end that explicitly defines a mapping for every element: */
+  /* A sample XML back-end that explicitly defines mappings for some elements: */
   def toXmlSample(elem: Markup): Node = elem match {
     case TextMarkup(text) => Text(text)
     case Body(items) => <body>{ items.map(toXmlSample) }</body>
     case Pre(text) => <pre>{ text }</pre>
-    case BlockQuote(items) => <blockquote>{ items.map(toXmlSample) }</blockquote>
-    case P(items) => <p>{ items.map(toXmlSample) }</p>
-    case Ol(items) => <ol>{ items.map(toXmlSample) }</ol>
-    case Ul(items) => <ul>{ items.map(toXmlSample) }</ul>
-    case Li(items) => <li>{ items.map(toXmlSample) }</li>
-    case h@H(level, body) => Elem(null, h.tag, Null, xml.TopScope, body.map(toXmlSample):_*)
-    case t@Tagged(name, body) => Elem(null, t.tag, Null, xml.TopScope, body.map(toXmlSample):_*)
+    // any other cases that should be handled explicitly can go here
+    case e@_ => Elem(null, e.tag, Null, xml.TopScope, e.children.map(toXmlSample):_*)
   }
 
 }
