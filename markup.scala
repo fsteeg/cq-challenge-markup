@@ -2,18 +2,15 @@
 exec scala -classpath target/scala_2.8.0/cq-challenge-markup_2.8.0-0.1.0.jar $0 $@
 !#
 
-import com.quui.markup.{MarkupParser,MarkupBackend}
-import scala.io.Source
-import scala.xml.PrettyPrinter
+// We redirect to default processing and output:
+com.quui.markup.Markup.main(args)
 
-if(args.size != 1) println("Pass a single argument: the name of the markup file to process")
-else {
-  /* Some configurable items: */
-  val processor = new MarkupParser/*(sub = """note|footnote""".r)*/
-  val pretty = new PrettyPrinter(100, 2)
-  val input = Source.fromFile(args(0)/*, UTF-8*/).mkString
-  /* Main driver program - parse and output as XML: */
-  val result = processor.parseMarkup(input)
-  val xml = pretty format MarkupBackend.toXml(result)
-  println(xml)
-}
+// We could customize how we process here, e.g.:
+/*
+import scala.io.Source._
+import com.quui.markup.Markup._
+println(
+  if(args.size != 1) "Pass a single argument: the name of the markup file to process"
+  else toXml(parse(fromFile(args(0)).mkString, sub = "note|subnote".r), pretty = false)
+)
+*/

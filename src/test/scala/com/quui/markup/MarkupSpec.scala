@@ -5,14 +5,23 @@ import org.scalatest.Spec
 import org.scalatest.matchers.ShouldMatchers
 import org.junit.runner.RunWith
 import org.scalatest.junit.JUnitRunner
-import MarkupModel._
-import MarkupBackend._
+import Markup._
 import java.io.File
-import scala.io.Source
+import scala.io.Source._
 import scala.xml.XML
 
 @RunWith(classOf[JUnitRunner])
-class MarkupParserSpec extends MarkupParser with Spec with ShouldMatchers {
+class MarkupSpec extends MarkupParser with Spec with ShouldMatchers {
+  
+  describe("The markup processor") {
+    it("can parse and export markup input"){
+      val parsed = Markup.parse("terms.txt", sub = "note|footnote".r) // 'sub' is optional
+      val output = Markup.toXml(parsed, pretty = false) // 'pretty' is optional
+    }
+    it("can convert a markup file passed as a command-line argument to an XML representation"){
+      Markup.main(Array("terms.xml"))
+    }
+  }
 
   val input = """* the first header
 
@@ -49,38 +58,38 @@ and another"""
       }
     }
     it("parses 'note' tags as sub-documents in its default configuration") {
-      expect(<p><note><p>Text</p></note></p>) { toXml(parseAll(p, """\note{Text}""").get) }
-      expect(<p><foot>Text</foot></p>) { toXml(parseAll(p, """\foot{Text}""").get) }
+      expect(<p><note><p>Text</p></note></p>) { MarkupBackend.toXml(parseAll(p, """\note{Text}""").get) }
+      expect(<p><foot>Text</foot></p>) { MarkupBackend.toXml(parseAll(p, """\foot{Text}""").get) }
     }
     it("can parse custom tags as sub-documents if specified in a pattern") {
       object CustomParser extends MarkupParser(sub = "note|foot".r) {
-        expect(<p><note><p>Text</p></note></p>) { toXml(parseAll(p, """\note{Text}""").get) }
-        expect(<p><foot><p>Text</p></foot></p>) { toXml(parseAll(p, """\foot{Text}""").get) }
+        expect(<p><note><p>Text</p></note></p>) { MarkupBackend.toXml(parseAll(p, """\note{Text}""").get) }
+        expect(<p><foot><p>Text</p></foot></p>) { MarkupBackend.toXml(parseAll(p, """\foot{Text}""").get) }
       }
     }
     it("supports simple links") {
-      expect(<link>text</link>) { 
+      expect(<link>text</link>) {
         val parse = parseAll(linkSimple, """[text]""")
-        toXml(checked(parse)) 
+        MarkupBackend.toXml(checked(parse))
       }
     }
     it("supports links with keys") {
-      expect(<link>text<key>key</key></link>) { 
+      expect(<link>text<key>key</key></link>) {
         val parse = parseAll(linkWithKey, """[text|key]""")
-        toXml(checked(parse)) 
+        MarkupBackend.toXml(checked(parse))
       }
     }
     it("supports link defs") {
-      expect(<link_def><link>text</link><url>http://www.example.com/text/</url></link_def>) { 
+      expect(<link_def><link>text</link><url>http://www.example.com/text/</url></link_def>) {
         val parse = parseAll(linkDef, """[text] <http://www.example.com/text/>""")
-        toXml(checked(parse)) 
+        MarkupBackend.toXml(checked(parse))
       }
     }
-    it("can parse the text files included in the project"){
+    it("can parse the text files included in the project") {
       for (
         file <- new File(".").listFiles;
         if file.getName.endsWith(".txt") || file.getName.equals("README")
-      ) { expect(classOf[Body]) { parseMarkup(Source.fromFile(file).mkString).getClass } }
+      ) { expect(classOf[Body]) { parseMarkup(fromFile(file).mkString).getClass } }
     }
   }
 
@@ -97,8 +106,8 @@ and another"""
                 </body>
       expect(pretty format xml) {
         val res = parseAll(body, input).get
-        println(pretty format toXml(res))
-        pretty format toXml(res)
+        println(pretty format MarkupBackend.toXml(res))
+        pretty format MarkupBackend.toXml(res)
       }
     }
     it("corresponds to the samples given in files") {
@@ -109,12 +118,12 @@ and another"""
         txt = file;
         xml = new File(txt.getAbsolutePath.replace(".txt", ".xml"))
       ) {
-        val input = Source.fromFile(txt).mkString
+        val input = fromFile(txt).mkString
         println("Input:\n" + input)
         val parsed = parseMarkup(input)
         println("Parsed: " + parsed)
-        val parsedXmlSpec = pretty format toXml(parsed)
-        val parsedXmlSample = pretty format toXmlSample(parsed)
+        val parsedXmlSpec = pretty format MarkupBackend.toXml(parsed)
+        val parsedXmlSample = pretty format MarkupBackend.toXmlSample(parsed)
         println("Output: " + parsedXmlSpec)
         val correct = XML.loadFile(xml)
         println("Correct: " + correct)

@@ -8,9 +8,9 @@ import org.scalatest.junit.JUnitRunner
 import scala.util.parsing.combinator.RegexParsers
 import scala.util.parsing.combinator.JavaTokenParsers
 import scala.xml.Node
-import MarkupModel._
+import Markup._
 
-class MarkupParser(sub: Regex = "note".r) extends MarkupLexer {
+private[markup] class MarkupParser(sub: Regex = Markup.defaultSubPattern) extends MarkupLexer {
 
   def parseMarkup(m: String): Body = checked(parseAll(body, stripped(m)))
 
@@ -20,7 +20,7 @@ class MarkupParser(sub: Regex = "note".r) extends MarkupLexer {
 
   def pre: Parser[Pre] = block(3) ^^ { case b => Pre(b) }
 
-  def list: Parser[Markup] = block(2) ^^ {
+  def list: Parser[Element] = block(2) ^^ {
     case b => {
       val bc: Seq[Char] = b
       bc match {
@@ -31,10 +31,10 @@ class MarkupParser(sub: Regex = "note".r) extends MarkupLexer {
     }
   }
 
-  private def ols: Parser[List[Li]] = rep1("# " ~ li) ^^ { case list => list.map(_ match { case _ ~ i => i }) }
-  private def uls: Parser[List[Li]] = rep1("- " ~ li) ^^ { case list => list.map(_ match { case _ ~ i => i }) }
+  def ols: Parser[List[Li]] = rep1("# " ~ li) ^^ { case list => list.map(_ match { case _ ~ i => i }) }
+  def uls: Parser[List[Li]] = rep1("- " ~ li) ^^ { case list => list.map(_ match { case _ ~ i => i }) }
 
-  private def li: Parser[Li] = rawLine ~ opt(newLine) ~ opt(block(2)) ~ opt(newLine) ^^ {
+  def li: Parser[Li] = rawLine ~ opt(newLine) ~ opt(block(2)) ~ opt(newLine) ^^ {
     case first ~ _ ~ None ~ _ => Li(parseInternal(body, first).children)
     case first ~ _ ~ rest ~ _ => Li(parseInternal(body, first + "\n\n" + rest.get).children)
   }
@@ -43,7 +43,7 @@ class MarkupParser(sub: Regex = "note".r) extends MarkupLexer {
     case b => BlockQuote(parseInternal(body, b).children)
   }
 
-  private def block(n: Int): Parser[String] = rep1(repN(n, " ") ~ rawLine ~ opt(newLine) ~ opt(newLine)) ^^ {
+  def block(n: Int): Parser[String] = rep1(repN(n, " ") ~ rawLine ~ opt(newLine) ~ opt(newLine)) ^^ {
     case text => {
       text.map(_ match {
         case _ ~ content ~ None ~ _ => content
@@ -54,11 +54,11 @@ class MarkupParser(sub: Regex = "note".r) extends MarkupLexer {
 
   def p: Parser[P] = para ~ opt(newLine) ^^ { case c ~ _ => P(c) }
 
-  private def para: Parser[List[Markup]] =
+  def para: Parser[List[Element]] =
     rep1(linkWithKey | linkSimple | textContent | taggedSubdoc | taggedTextual) ~ opt(newLine) ^^ {
       case textSections ~ _ => textSections.map(_ match {
         case t: String => TextMarkup(t)
-        case sub: Markup => sub
+        case sub: Element => sub
       })
     }
 
@@ -68,7 +68,7 @@ class MarkupParser(sub: Regex = "note".r) extends MarkupLexer {
 
   def linkSimple: Parser[Link] = "[" ~ label ~ "]" ^^ { case _ ~ t ~ _ => Link(List(t)) }
 
-  def label: Parser[Markup] = taggedTextual | rep1("""[^|\]]""".r) ^^ {
+  def label: Parser[Element] = taggedTextual | rep1("""[^|\]]""".r) ^^ {
     case chars => TextMarkup(chars.mkString)
   }
 
@@ -79,25 +79,25 @@ class MarkupParser(sub: Regex = "note".r) extends MarkupLexer {
 
   def url: Parser[String] = rep1("""[^<>]""".r) ^^ { case url => url.mkString }
 
-  private def taggedTextual: Parser[Tagged] = tagged(tagName, para)
-  private def taggedSubdoc: Parser[Tagged] = tagged(sub, subdoc)
-  private def subdoc: Parser[List[Markup]] = body ^^ { case c => c.children }
-  private def tagged(tag: Parser[String], content: Parser[List[Markup]]) =
+  def taggedTextual: Parser[Tagged] = tagged(tagName, para)
+  def taggedSubdoc: Parser[Tagged] = tagged(sub, subdoc)
+  def subdoc: Parser[List[Element]] = body ^^ { case c => c.children }
+  def tagged(tag: Parser[String], content: Parser[List[Element]]) =
     """\""" ~ tag ~ "{" ~ content ~ "}" ^^ { case _ ~ tag ~ _ ~ c ~ _ => Tagged(tag, c) }
 
-  private def parseInternal[T](e: Parser[T], s: String): T = checked(super.parseAll(e, s + "\n"))
+  def parseInternal[T](e: Parser[T], s: String): T = checked(super.parseAll(e, s + "\n"))
 
   def checked[T](p: ParseResult[T]): T = p match {
     case Success(result, _) => result
     case no@_ => throw new IllegalArgumentException(no.toString)
   }
 
-  private def stripped(s: String) = stripModeLines(stripTrailing(s))
-  private def stripModeLines(s: String) = """^-\*-.+\n{1,2}""".r.replaceAllIn(s, "")
-  private def stripTrailing(s: String) = """[\s]+\n$""".r.replaceAllIn(s, "")
+  def stripped(s: String) = stripModeLines(stripTrailing(s))
+  def stripModeLines(s: String) = """^-\*-.+\n{1,2}""".r.replaceAllIn(s, "")
+  def stripTrailing(s: String) = """[\s]+\n$""".r.replaceAllIn(s, "")
 }
 
-class MarkupLexer extends JavaTokenParsers with RegexParsers {
+private[markup] class MarkupLexer extends JavaTokenParsers with RegexParsers {
   override def skipWhitespace = false
   def rawLine = rawText ~ newLine ^^ { case c ~ _ => c.mkString }
   def rawPara = rep1sep(rawText, newLine) ~ newLine ^^ { case raw ~ _ => raw.mkString(" ") }
