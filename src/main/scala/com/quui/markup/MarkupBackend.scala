@@ -1,3 +1,4 @@
+package com.quui.markup
 import scala.xml.Text
 import scala.xml.Elem
 import scala.xml.Null

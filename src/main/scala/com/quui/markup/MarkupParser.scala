@@ -1,3 +1,4 @@
+package com.quui.markup
 import scala.util.matching.Regex
 import scala.collection.mutable.ListBuffer
 import org.scalatest.Spec

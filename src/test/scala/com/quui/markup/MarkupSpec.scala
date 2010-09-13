@@ -1,3 +1,4 @@
+package com.quui.markup
 import scala.xml.PrettyPrinter
 import scala.util.parsing.combinator.Parsers
 import org.scalatest.Spec
@@ -78,7 +79,7 @@ and another"""
     it("can parse the text files included in the project"){
       for (
         file <- new File(".").listFiles;
-        if file.getName.endsWith(".txt")
+        if file.getName.endsWith(".txt") || file.getName.equals("README")
       ) { expect(classOf[Body]) { parseMarkup(Source.fromFile(file).mkString).getClass } }
     }
   }

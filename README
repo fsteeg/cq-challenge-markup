@@ -1,3 +1,10 @@
+Fork-specific information:
+
+  - build, test and deploy: sbt, test, package
+  - use: ./markup.scala terms.txt >> terms.xml
+
+General information:
+
 The files in this directory are those you'll need to participate in
 inaugural the Code Quarterly Code Challenge which you can read about
 here: http://www.codequarterly.com/code-challenges/markup/
