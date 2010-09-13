@@ -15,7 +15,7 @@ class MarkupSpec extends MarkupParser with Spec with ShouldMatchers {
   
   describe("The markup processor") {
     it("can parse and export markup input"){
-      val parsed = Markup.parse("terms.txt", sub = "note|footnote".r) // 'sub' is optional
+      val parsed = Markup.parse(fromFile("terms.txt").mkString, sub = "note|footnote".r) // 'sub' is optional
       val output = Markup.toXml(parsed, pretty = false) // 'pretty' is optional
     }
     it("can convert a markup file passed as a command-line argument to an XML representation"){
@@ -47,12 +47,12 @@ and another"""
     it("can parse markup input into an internal tree representation") {
       expect(
         Body(List(
-          H(1, List(TextMarkup("the first header"))),
-          P(List(TextMarkup("a first paragraph."))),
+          H(1, List(TextElement("the first header"))),
+          P(List(TextElement("a first paragraph."))),
           BlockQuote(List(
-            P(List(TextMarkup("some famous words"))))),
-          H(2, List(TextMarkup("the second header"))),
-          P(List(TextMarkup("and another")))))
+            P(List(TextElement("some famous words"))))),
+          H(2, List(TextElement("the second header"))),
+          P(List(TextElement("and another")))))
         ) {
         parseMarkup(input)
       }

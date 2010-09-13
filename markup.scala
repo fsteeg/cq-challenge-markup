@@ -1,5 +1,5 @@
 #!/bin/sh
-exec scala -classpath target/scala_2.8.0/cq-challenge-markup_2.8.0-0.1.0.jar $0 $@
+exec scala -classpath markup.jar $0 $@
 !#
 
 // We redirect to default processing and output:
