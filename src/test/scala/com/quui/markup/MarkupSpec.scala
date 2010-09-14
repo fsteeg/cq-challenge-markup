@@ -19,7 +19,7 @@ class MarkupSpec extends MarkupParser with Spec with ShouldMatchers {
       val output = Markup.toXml(parsed, pretty = false) // 'pretty' is optional
     }
     it("can convert a markup file passed as a command-line argument to an XML representation"){
-      Markup.main(Array("terms.xml"))
+      Markup.main(Array("terms.txt"))
     }
   }
 

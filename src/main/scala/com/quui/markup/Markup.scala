@@ -113,28 +113,32 @@ private[markup] class MarkupParser(sub: Regex = Markup.defaultSubPattern) extend
   def ols: Parser[List[Li]] = rep1("# " ~ li) ^^ { case list => list.map(_ match { case _ ~ i => i }) }
   def uls: Parser[List[Li]] = rep1("- " ~ li) ^^ { case list => list.map(_ match { case _ ~ i => i }) }
 
-  def li: Parser[Li] = rawLine ~ opt(newLine) ~ opt(block(2)) ~ opt(newLine) ^^ {
-    case first ~ _ ~ None ~ _ => Li(parseInternal(body, first).children)
-    case first ~ _ ~ rest ~ _ => Li(parseInternal(body, first + "\n\n" + rest.get).children)
+  def li: Parser[Li] = {
+    def li(s: String) = Li(parseInternal(body, s).children)
+    line(textChar) ~ rep(newLine) ~ opt(block(2)) ^^ {
+      case first ~ _ ~ None => li(first)
+      case first ~ Nil ~ Some(rest) => li(first + "\n" + rest) // multi-line para
+      case first ~ _ ~ Some(rest) => li(first + "\n\n" + rest) // multi-para item
+    }
   }
 
   def blockquote: Parser[BlockQuote] = block(2) ^^ {
     case b => BlockQuote(parseInternal(body, b).children)
   }
 
-  def block(n: Int): Parser[String] = rep1(repN(n, " ") ~ rawLine ~ opt(newLine) ~ opt(newLine)) ^^ {
+  def block(n: Int): Parser[String] = rep1(repN(n, " ") ~ line(rawChar) ~ rep(newLine)) ^^ {
     case text => {
       text.map(_ match {
-        case _ ~ content ~ None ~ _ => content
-        case _ ~ content ~ _ ~ _ => content + "\n"
+        case _ ~ content ~ Nil => content
+        case _ ~ content ~ _ => content + "\n"
       }).mkString("\n")
     }
   }
 
-  def p: Parser[P] = para ~ opt(newLine) ^^ { case c ~ _ => P(c) }
+  def p: Parser[P] = para ^^ { case c => P(c) }
 
   def para: Parser[List[Element]] =
-    rep1(linkWithKey | linkSimple | textContent | taggedSubdoc | taggedTextual) ~ opt(newLine) ^^ {
+    rep1(linkWithKey | linkSimple | para(textChar) | taggedSubdoc | taggedTextual) ~ rep(newLine) ^^ {
       case textSections ~ _ => textSections.map(_ match {
         case t: String => TextElement(t)
         case sub: Element => sub
@@ -152,8 +156,8 @@ private[markup] class MarkupParser(sub: Regex = Markup.defaultSubPattern) extend
   }
 
   def linkDef: Parser[LinkDef] =
-    linkSimple ~ rep(" ") ~ "<" ~ url ~ ">" ~ opt(newLine) ~ opt(newLine) ^^ {
-      case link ~ _ ~ _ ~ url ~ _ ~ _ ~ _ => LinkDef(link, Url(url))
+    linkSimple ~ rep(" ") ~ "<" ~ url ~ ">" ~ rep(newLine) ^^ {
+      case link ~ _ ~ _ ~ url ~ _ ~ _ => LinkDef(link, Url(url))
     }
 
   def url: Parser[String] = rep1("""[^<>]""".r) ^^ { case url => url.mkString }
@@ -171,25 +175,21 @@ private[markup] class MarkupParser(sub: Regex = Markup.defaultSubPattern) extend
     case no@_ => throw new IllegalArgumentException(no.toString)
   }
 
-  def stripped(s: String) = stripModeLines(stripTrailing(s))
+  def stripped(s: String) = stripModeLines(trimWhiteSpaceLines(s))
   def stripModeLines(s: String) = """^-\*-.+\n{1,2}""".r.replaceAllIn(s, "")
-  def stripTrailing(s: String) = """[\s]+\n$""".r.replaceAllIn(s, "")
+  def trimWhiteSpaceLines(s: String) = """\n\s+\n""".r.replaceAllIn(s, "\n\n")
 }
 
 private[markup] class MarkupLexer extends JavaTokenParsers with RegexParsers {
   override def skipWhitespace = false
-  def rawLine = rawText ~ newLine ^^ { case c ~ _ => c.mkString }
-  def rawPara = rep1sep(rawText, newLine) ~ newLine ^^ { case raw ~ _ => raw.mkString(" ") }
-  def rawText = rep1(rawChar) ^^ { case c => c.mkString }
+  def para(c: Parser[String]) = rep1sep(text(c), newLine) ~ opt(newLine) ^^ { case raw ~ _ => raw.mkString(" ") }
+  def line(c: Parser[String]) = text(c) ~ newLine ^^ { case c ~ _ => c.mkString }
+  def text(c: Parser[String]) = rep1(c) ^^ { case c => c.mkString }
   def rawChar = """.""".r
-  def textContent = rep1sep(textWord, newLine) ~ opt(newLine) ^^ { case c ~ _ => c.mkString(" ") }
-  def textPara = rep1(textLine) ~ opt(newLine) ^^ { case chars ~ _ => chars.mkString(" ").trim }
-  def textLine = textWord ~ newLine ^^ { case c ~ _ => c.mkString }
-  def textWord = rep1(textChar) ^^ { case chars => chars.mkString }
   def textChar = """[^\\{}\[\n]""".r | """\""" ~ escapedChar ^^ { case _ ~ c => c }
   def escapedChar = requiredEscapes | optionalEscapes
   def requiredEscapes = """\""" | "{" | "}" | "["
   def optionalEscapes = "*" | "-" | "#"
-  def tagName = rep1("""[\d\w-.+]""".r) ^^ { case chars => chars.mkString }
+  def tagName = rep1("""[\d\w-.]""".r) ^^ { case chars => chars.mkString }
   def newLine = "\u000D\u000A" | "\u000D" | "\u000A"
 }
