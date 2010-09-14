@@ -95,14 +95,40 @@ private[markup] class MarkupParser(sub: Regex = Markup.defaultSubPattern) extend
 
   def body: Parser[Body] = rep(h | pre | list | blockquote | linkDef | p) ^^ { case c => Body(c) }
 
-  def h: Parser[H] = rep1("*") ~ " " ~ para ^^ { case h ~ _ ~ p => H(h.size, p) }
+  def h: Parser[H] = rep1("*") ~ " " ~ text ^^ { case h ~ _ ~ p => H(h.size, p) }
 
+  /* A verbatim section is indented with 3 spaces and its content is captured as it is: */
   def pre: Parser[Pre] = block(3) ^^ { case b => Pre(b) }
+
+  /* A blockquote section is indented with 2 spaces and its content is parsed like a body: */
+  def blockquote: Parser[BlockQuote] = block(2) ^^ {
+    case b => BlockQuote(parseInternal(body, b).children)
+  }
+
+  /* Generic block construct: indented with n spaces, parsed into the un-indented text.
+   * Using this, we untab sub-blocks used for different elements and parse them again. */
+  def block(n: Int): Parser[String] = rep1(repN(n, " ") ~ line(rawChar) ~ rep(newLine)) ^^ {
+    case text => {
+      text.map(_ match {
+        case _ ~ content ~ Nil => content
+        case _ ~ content ~ _ => content + "\n"
+      }).mkString("\n")
+    }
+  }
+
+  def p: Parser[P] = text ^^ { case c => P(c) }
+
+  def text: Parser[List[Element]] =
+    rep1(linkWithKey | linkSimple | para(textChar) | taggedSubdoc | taggedTextual) ~ rep(newLine) ^^ {
+      case textSections ~ _ => textSections.map(_ match {
+        case t: String => TextElement(t)
+        case sub: Element => sub
+      })
+    }
 
   def list: Parser[Element] = block(2) ^^ {
     case b => {
-      val bc: Seq[Char] = b
-      bc match {
+      val bc: Seq[Char] = b; bc match {
         case Seq('#', _*) => Ol(parseInternal(ols, b))
         case Seq('-', _*) => Ul(parseInternal(uls, b))
         case _ => BlockQuote(parseInternal(body, b).children)
@@ -122,30 +148,7 @@ private[markup] class MarkupParser(sub: Regex = Markup.defaultSubPattern) extend
     }
   }
 
-  def blockquote: Parser[BlockQuote] = block(2) ^^ {
-    case b => BlockQuote(parseInternal(body, b).children)
-  }
-
-  def block(n: Int): Parser[String] = rep1(repN(n, " ") ~ line(rawChar) ~ rep(newLine)) ^^ {
-    case text => {
-      text.map(_ match {
-        case _ ~ content ~ Nil => content
-        case _ ~ content ~ _ => content + "\n"
-      }).mkString("\n")
-    }
-  }
-
-  def p: Parser[P] = para ^^ { case c => P(c) }
-
-  def para: Parser[List[Element]] =
-    rep1(linkWithKey | linkSimple | para(textChar) | taggedSubdoc | taggedTextual) ~ rep(newLine) ^^ {
-      case textSections ~ _ => textSections.map(_ match {
-        case t: String => TextElement(t)
-        case sub: Element => sub
-      })
-    }
-
-  def linkWithKey: Parser[Link] = "[" ~ label ~ "|" ~ tagName ~ "]" ^^ {
+  def linkWithKey: Parser[Link] = "[" ~ label ~ "|" ~ tag ~ "]" ^^ {
     case _ ~ t ~ _ ~ k ~ _ => Link(List(t, Key(k)))
   }
 
@@ -156,13 +159,11 @@ private[markup] class MarkupParser(sub: Regex = Markup.defaultSubPattern) extend
   }
 
   def linkDef: Parser[LinkDef] =
-    linkSimple ~ rep(" ") ~ "<" ~ url ~ ">" ~ rep(newLine) ^^ {
-      case link ~ _ ~ _ ~ url ~ _ ~ _ => LinkDef(link, Url(url))
+    linkSimple ~ rep(" ") ~ "<" ~ rep1("""[^>]""".r) ~ ">" ~ rep(newLine) ^^ {
+      case link ~ _ ~ _ ~ url ~ _ ~ _ => LinkDef(link, Url(url.mkString))
     }
 
-  def url: Parser[String] = rep1("""[^<>]""".r) ^^ { case url => url.mkString }
-
-  def taggedTextual: Parser[Tagged] = tagged(tagName, para)
+  def taggedTextual: Parser[Tagged] = tagged(tag, text)
   def taggedSubdoc: Parser[Tagged] = tagged(sub, subdoc)
   def subdoc: Parser[List[Element]] = body ^^ { case c => c.children }
   def tagged(tag: Parser[String], content: Parser[List[Element]]) =
@@ -190,6 +191,6 @@ private[markup] class MarkupLexer extends JavaTokenParsers with RegexParsers {
   def escapedChar = requiredEscapes | optionalEscapes
   def requiredEscapes = """\""" | "{" | "}" | "["
   def optionalEscapes = "*" | "-" | "#"
-  def tagName = rep1("""[\d\w-.]""".r) ^^ { case chars => chars.mkString }
+  def tag = rep1("""[\d\w-.]""".r) ^^ { case chars => chars.mkString }
   def newLine = "\u000D\u000A" | "\u000D" | "\u000A"
 }

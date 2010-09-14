@@ -12,13 +12,13 @@ import scala.xml.XML
 
 @RunWith(classOf[JUnitRunner])
 class MarkupSpec extends MarkupParser with Spec with ShouldMatchers {
-  
+
   describe("The markup processor") {
-    it("can parse and export markup input"){
+    it("can parse and export markup input") {
       val parsed = Markup.parse(fromFile("terms.txt").mkString, sub = "note|footnote".r) // 'sub' is optional
       val output = Markup.toXml(parsed, pretty = false) // 'pretty' is optional
     }
-    it("can convert a markup file passed as a command-line argument to an XML representation"){
+    it("can convert a markup file passed as a command-line argument to an XML representation") {
       Markup.main(Array("terms.txt"))
     }
   }
