@@ -4,18 +4,18 @@ _Prerequisites:_ "Scala 2.8.0":http://www.scala-lang.org/downloads (for running)
 
 h3. Command-line usage (parse input, XML output)
 
-In the project directory, call: @markup.scala@ with the markup file to process, e.g. @./markup.scala/terms.txt@, or @./markup.scala terms.txt > terms.xml@ to redirect to a result file.
+In the project directory, run @markup.scala@ with the markup file to process, e.g. @./markup.scala/terms.txt@, or @./markup.scala terms.txt > terms.xml@ to redirect to a result file.
 
 If you are on Windows or have trouble with the script, you can also launch it with @scala -cp markup.jar markup.scala@, e.g. @scala -cp markup.jar markup.scala terms.txt@
 
 h3. API usage (parse input, XML output, transform data structure)
 
-To use the API, add @markup.jar@ to your classpath, import the @Markup@ object members, and have your markup input as a string:
+To use the API, add @markup.jar@ to your classpath, import the @Markup@ object members, and have your markup input as a @String@:
 
 bc. import com.quui.markup.Markup._
 val input = scala.io.Source.fromFile("terms.txt").mkString
 
-The API allows markup to be parsed into a tree structure:
+Using the API, you can parse markup to a tree structure:
 
 bc. val body = parse(input) // optional: pass sub-document tag pattern
 
@@ -40,9 +40,11 @@ bc. def toXml(elem: Element): Node = elem match {
   // ...
 }
 
+Complete Scaladoc API documentation is available in the @markup-docs.zip@ file.
+
 h3. Building and running the tests
 
-In @sbt@, run @update@, @test@, @doc@, @package@ to build, test, doc and deploy to the target directory.
+In @sbt@, run @update@, @test@, @doc@, @package@ to build, test, doc and deploy to the @target@ directory. After a first build in SBT, the project can also be used in the Scala IDE for Eclipse.
 
 h2. General information
 

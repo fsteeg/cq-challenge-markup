@@ -1,3 +1,8 @@
+/**************************************************************************************************
+ * Copyright (c) 2010 Fabian Steeg. All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Public License v1.0 which accompanies this
+ * distribution, and is available at http://www.eclipse.org/legal/epl-v10.html
+ *************************************************************************************************/
 package com.quui.markup
 
 import scala.util.matching.Regex
@@ -66,7 +71,7 @@ object Markup {
 }
 
 import com.quui.markup.Markup._
-
+/* The markup backend: transformation of parsed markup structure to XML. */
 private[markup] object MarkupBackend {
 
   /* The simple XML back-end according to the specification: */
@@ -84,14 +89,13 @@ private[markup] object MarkupBackend {
     // any other cases that should be handled explicitly can go here
     case e@_ => Elem(null, e.tag, Null, xml.TopScope, e.children.map(toXmlSample): _*)
   }
-
 }
 
 import scala.util.parsing.combinator._
-
+/* The markup parser: combines parsers of markup elements, i.e. Parser[Element] */
 private[markup] class MarkupParser(sub: Regex = Markup.defaultSubPattern) extends MarkupLexer {
 
-  def parseMarkup(m: String): Body = checked(parseAll(body, stripped(m)))
+  def parseMarkup(m: String): Body = checked(parseAll(body, Preprocessor.clean(m)))
 
   def body: Parser[Body] = rep(h | pre | list | blockquote | linkDef | p) ^^ { case c => Body(c) }
 
@@ -105,21 +109,10 @@ private[markup] class MarkupParser(sub: Regex = Markup.defaultSubPattern) extend
     case b => BlockQuote(parseInternal(body, b).children)
   }
 
-  /* Generic block construct: indented with n spaces, parsed into the un-indented text.
-   * Using this, we untab sub-blocks used for different elements and parse them again. */
-  def block(n: Int): Parser[String] = rep1(repN(n, " ") ~ line(rawChar) ~ rep(newLine)) ^^ {
-    case text => {
-      text.map(_ match {
-        case _ ~ content ~ Nil => content
-        case _ ~ content ~ _ => content + "\n"
-      }).mkString("\n")
-    }
-  }
-
   def p: Parser[P] = text ^^ { case c => P(c) }
 
   def text: Parser[List[Element]] =
-    rep1(linkWithKey | linkSimple | para(textChar) | taggedSubdoc | taggedTextual) ~ rep(newLine) ^^ {
+    rep1(link | linkSimple | para(textChar) | taggedSubdoc | taggedTextual) ~ rep(newLine) ^^ {
       case textSections ~ _ => textSections.map(_ match {
         case t: String => TextElement(t)
         case sub: Element => sub
@@ -127,13 +120,9 @@ private[markup] class MarkupParser(sub: Regex = Markup.defaultSubPattern) extend
     }
 
   def list: Parser[Element] = block(2) ^^ {
-    case b => {
-      val bc: Seq[Char] = b; bc match {
-        case Seq('#', _*) => Ol(parseInternal(ols, b))
-        case Seq('-', _*) => Ul(parseInternal(uls, b))
-        case _ => BlockQuote(parseInternal(body, b).children)
-      }
-    }
+    case s: String if s.startsWith("#") => Ol(parseInternal(ols, s))
+    case s: String if s.startsWith("-") => Ul(parseInternal(uls, s))
+    case s@_ => BlockQuote(parseInternal(body, s).children)
   }
 
   def ols: Parser[List[Li]] = rep1("# " ~ li) ^^ { case list => list.map(_ match { case _ ~ i => i }) }
@@ -148,20 +137,12 @@ private[markup] class MarkupParser(sub: Regex = Markup.defaultSubPattern) extend
     }
   }
 
-  def linkWithKey: Parser[Link] = "[" ~ label ~ "|" ~ tag ~ "]" ^^ {
-    case _ ~ t ~ _ ~ k ~ _ => Link(List(t, Key(k)))
+  def link: Parser[Link] = "[" ~ linkLabel ~ "|" ~ tag ~ "]" ^^ { case _ ~ t ~ _ ~ k ~ _ => Link(List(t, Key(k))) }
+  def linkSimple: Parser[Link] = "[" ~ linkLabel ~ "]" ^^ { case _ ~ t ~ _ => Link(List(t)) }
+  def linkLabel: Parser[Element] = taggedTextual | rep1("""[^|\]]""".r) ^^ { case c => TextElement(c.mkString) }
+  def linkDef: Parser[LinkDef] = linkSimple ~ rep(" ") ~ "<" ~ rep1("""[^>]""".r) ~ ">" ~ rep(newLine) ^^ {
+    case link ~ _ ~ _ ~ url ~ _ ~ _ => LinkDef(link, Url(url.mkString))
   }
-
-  def linkSimple: Parser[Link] = "[" ~ label ~ "]" ^^ { case _ ~ t ~ _ => Link(List(t)) }
-
-  def label: Parser[Element] = taggedTextual | rep1("""[^|\]]""".r) ^^ {
-    case chars => TextElement(chars.mkString)
-  }
-
-  def linkDef: Parser[LinkDef] =
-    linkSimple ~ rep(" ") ~ "<" ~ rep1("""[^>]""".r) ~ ">" ~ rep(newLine) ^^ {
-      case link ~ _ ~ _ ~ url ~ _ ~ _ => LinkDef(link, Url(url.mkString))
-    }
 
   def taggedTextual: Parser[Tagged] = tagged(tag, text)
   def taggedSubdoc: Parser[Tagged] = tagged(sub, subdoc)
@@ -170,22 +151,40 @@ private[markup] class MarkupParser(sub: Regex = Markup.defaultSubPattern) extend
     """\""" ~ tag ~ "{" ~ content ~ "}" ^^ { case _ ~ tag ~ _ ~ c ~ _ => Tagged(tag, c) }
 
   def parseInternal[T](e: Parser[T], s: String): T = checked(super.parseAll(e, s + "\n"))
-
   def checked[T](p: ParseResult[T]): T = p match {
     case Success(result, _) => result
     case no@_ => throw new IllegalArgumentException(no.toString)
   }
-
-  def stripped(s: String) = stripModeLines(trimWhiteSpaceLines(s))
-  def stripModeLines(s: String) = """^-\*-.+\n{1,2}""".r.replaceAllIn(s, "")
-  def trimWhiteSpaceLines(s: String) = """\n\s+\n""".r.replaceAllIn(s, "\n\n")
 }
 
+/* Some preprocessing logic, applied before the text is parsed. */
+private[markup] object Preprocessor {
+  /* Patterns to remove: mode lines, space between newlines, leading blank lines */
+  val patterns = List("""^-\*-.+\n{1,2}""".r, """(?m)^\s+$""".r, """^\n+""".r)
+  def clean(s: String) = (s /: patterns)((s: String, r: Regex) => r.replaceAllIn(s, ""))
+}
+
+/* The markup lexer: tokenizes text by combining parsers of strings, i.e. Parser[String] */
 private[markup] class MarkupLexer extends JavaTokenParsers with RegexParsers {
   override def skipWhitespace = false
+
+  /* Generic block construct: indented with n spaces, parsed into the un-indented text.
+   * Using this, we untab sub-blocks used for different elements and parse them again. */
+  def block(n: Int) = rep1(repN(n, " ") ~ line(rawChar) ~ rep(newLine)) ^^ {
+    case text => {
+      text.map(_ match {
+        case _ ~ content ~ Nil => content
+        case _ ~ content ~ _ => content + "\n"
+      }).mkString("\n")
+    }
+  }
+
+  /* Sections of characters, configurable to use a certain class, e.g. rawChar or textChar. */
   def para(c: Parser[String]) = rep1sep(text(c), newLine) ~ opt(newLine) ^^ { case raw ~ _ => raw.mkString(" ") }
   def line(c: Parser[String]) = text(c) ~ newLine ^^ { case c ~ _ => c.mkString }
   def text(c: Parser[String]) = rep1(c) ^^ { case c => c.mkString }
+
+  /* Actual character definitions: */
   def rawChar = """.""".r
   def textChar = """[^\\{}\[\n]""".r | """\""" ~ escapedChar ^^ { case _ ~ c => c }
   def escapedChar = requiredEscapes | optionalEscapes
