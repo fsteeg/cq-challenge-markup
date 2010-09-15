@@ -114,8 +114,7 @@ private[markup] class MarkupParser(sub: Regex = Markup.defaultSubPattern) extend
   def text: Parser[List[Element]] =
     rep1(link | linkSimple | para(textChar) | taggedSubdoc | taggedTextual) ~ rep(newLine) ^^ {
       case textSections ~ _ => textSections.map(_ match {
-        case t: String => TextElement(t)
-        case sub: Element => sub
+        case t: String => TextElement(t); case sub: Element => sub
       })
     }
 
@@ -148,20 +147,13 @@ private[markup] class MarkupParser(sub: Regex = Markup.defaultSubPattern) extend
   def taggedSubdoc: Parser[Tagged] = tagged(sub, subdoc)
   def subdoc: Parser[List[Element]] = body ^^ { case c => c.children }
   def tagged(tag: Parser[String], content: Parser[List[Element]]) =
-    """\""" ~ tag ~ "{" ~ content ~ "}" ^^ { case _ ~ tag ~ _ ~ c ~ _ => Tagged(tag, c) }
+    """\""" ~ tag ~ "{" ~ content ~ "}" ~ opt(newLine) ^^ { case _ ~ tag ~ _ ~ c ~ _ ~ _ => Tagged(tag, c) }
 
-  def parseInternal[T](e: Parser[T], s: String): T = checked(super.parseAll(e, s + "\n"))
+  def parseInternal[T](e: Parser[T], s: String): T = checked(super.parseAll(e, s))
   def checked[T](p: ParseResult[T]): T = p match {
     case Success(result, _) => result
     case no@_ => throw new IllegalArgumentException(no.toString)
   }
-}
-
-/* Some preprocessing logic, applied before the text is parsed. */
-private[markup] object Preprocessor {
-  /* Patterns to remove: mode lines, space between newlines, leading blank lines */
-  val patterns = List("""^-\*-.+\n{1,2}""".r, """(?m)^\s+$""".r, """^\n+""".r)
-  def clean(s: String) = (s /: patterns)((s: String, r: Regex) => r.replaceAllIn(s, ""))
 }
 
 /* The markup lexer: tokenizes text by combining parsers of strings, i.e. Parser[String] */
@@ -170,18 +162,17 @@ private[markup] class MarkupLexer extends JavaTokenParsers with RegexParsers {
 
   /* Generic block construct: indented with n spaces, parsed into the un-indented text.
    * Using this, we untab sub-blocks used for different elements and parse them again. */
-  def block(n: Int) = rep1(repN(n, " ") ~ line(rawChar) ~ rep(newLine)) ^^ {
+  def block(n: Int) = rep1((repN(n, " ") ~ line(rawChar)) | newLine) ^^ {
     case text => {
       text.map(_ match {
-        case _ ~ content ~ Nil => content
-        case _ ~ content ~ _ => content + "\n"
-      }).mkString("\n")
+        case _ ~ content => content; case empty if empty != text.last => empty; case _ => ""
+      }).mkString("\n").replaceAll(Preprocessor.patterns("trailingSpaces"), "")
     }
   }
 
   /* Sections of characters, configurable to use a certain class, e.g. rawChar or textChar. */
   def para(c: Parser[String]) = rep1sep(text(c), newLine) ~ opt(newLine) ^^ { case raw ~ _ => raw.mkString(" ") }
-  def line(c: Parser[String]) = text(c) ~ newLine ^^ { case c ~ _ => c.mkString }
+  def line(c: Parser[String]) = text(c) ~ (newLine | end) ^^ { case c ~ _ => c.mkString }
   def text(c: Parser[String]) = rep1(c) ^^ { case c => c.mkString }
 
   /* Actual character definitions: */
@@ -192,4 +183,12 @@ private[markup] class MarkupLexer extends JavaTokenParsers with RegexParsers {
   def optionalEscapes = "*" | "-" | "#"
   def tag = rep1("""[\d\w-.]""".r) ^^ { case chars => chars.mkString }
   def newLine = "\u000D\u000A" | "\u000D" | "\u000A"
+  def end = """$""".r
+}
+
+/* Some preprocessing logic: patterns to remove and removal method, applied before the text is parsed. */
+private[markup] object Preprocessor {
+  val patterns = Map("modeLines" -> """^-\*-.+\n{1,2}""", "spaceBetweenNewLines" -> """(?m)^\s+$""",
+    "leadingBlankLines" -> """^\n+""", "trailingSpaces" -> """\s+$""")
+  def clean(s: String) = (s /: patterns)((s: String, t: (String, String)) => t._2.r.replaceAllIn(s, ""))
 }

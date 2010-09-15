@@ -16,9 +16,9 @@
     <note>
         <p>Markup was originally developed in Lisp where the obvious representation for a Markup document is as s-expressions, with each tree represented by a list whose first element is a symbol indicating the tree’s tag.</p>
         <pre>(:body
-  (:h1 "This is a header")
-  (:p "This is a paragraph")
-  (:p "This is another paragraph with some" (:i "italic") " text in it."))</pre>
+  (:h1 &quot;This is a header&quot;)
+  (:p &quot;This is a paragraph&quot;)
+  (:p &quot;This is another paragraph with some&quot; (:i &quot;italic&quot;) &quot; text in it.&quot;))</pre>
         <p>This kind of tree structure also has an obvious representation in XML or HTML:</p>
         <pre>&lt;body&gt;
   &lt;h1&gt;This is a header&lt;/h1&gt;

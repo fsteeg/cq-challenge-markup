@@ -43,7 +43,7 @@ a first paragraph.
 
 ** the second header
 
-and another""")
+and more""")
 
     it("can parse markup input to an internal tree representation") {
       val tree = Body(List(
@@ -52,7 +52,7 @@ and another""")
         BlockQuote(List(
           P(List(TextElement("some famous words"))))),
         H(2, List(TextElement("the second header"))),
-        P(List(TextElement("and another")))))
+        P(List(TextElement("and more")))))
       expect(tree) { body }
     }
 
@@ -64,29 +64,9 @@ and another""")
                     <p>some famous words</p>
                   </blockquote>
                   <h2>the second header</h2>
-                  <p>and another</p>
+                  <p>and more</p>
                 </body>
       expect(pretty format xml) { pretty format MarkupBackend.toXml(body) }
-    }
-
-    it("can parse and transform the test files in the tests/ directory") {
-      for (
-        txt <- new File("tests").listFiles; if txt.getName.endsWith(".txt");
-        xml = new File(txt.getAbsolutePath.replace(".txt", ".xml"))
-      ) {
-        val parsed = parseMarkup(fromFile(txt).mkString)
-        val correct = XML.loadFile(xml)
-        print("[Testing] %s ".format(txt.getName))
-        expect(pretty format correct) { pretty format MarkupBackend.toXml(parsed) }
-        expect(pretty format correct) { pretty format MarkupBackend.toXmlSample(parsed) }
-        println("[OK]")
-      }
-    }
-
-    it("can parse the text files included in the project") {
-      for (file <- new File(".").listFiles; if file.getName.endsWith(".txt")) {
-        expect(classOf[Body]) { parseMarkup(fromFile(file).mkString).getClass }
-      }
     }
   }
 
@@ -123,6 +103,26 @@ and another""")
     it("supports link defs") {
       expect(<link_def><link>text</link><url>http://www.example.com/text/</url></link_def>) {
         toXml(checked(parseAll(linkDef, """[text] <http://www.example.com/text/>""")))
+      }
+    }
+
+    it("can parse and transform the test files in the tests/ directory") {
+      for (
+        txt <- new File("tests").listFiles; if txt.getName.endsWith(".txt");
+        xml = new File(txt.getAbsolutePath.replace(".txt", ".xml"))
+      ) {
+        val parsed = parseMarkup(fromFile(txt, "UTF-8").mkString)
+        val correct = XML.loadFile(xml)
+        print("[Testing] %s ".format(txt.getName))
+        expect(pretty format correct) { pretty format MarkupBackend.toXml(parsed) }
+        expect(pretty format correct) { pretty format MarkupBackend.toXmlSample(parsed) }
+        println("[OK]")
+      }
+    }
+
+    it("can parse the text files included in the project") {
+      for (file <- new File(".").listFiles; if file.getName.endsWith(".txt")) {
+        expect(classOf[Body]) { parseMarkup(fromFile(file).mkString).getClass }
       }
     }
   }

@@ -11,6 +11,6 @@ import scala.io.Source._
 import com.quui.markup.Markup._
 println(
   if(args.size != 1) "Pass a single argument: the name of the markup file to process"
-  else toXml(parse(fromFile(args(0)).mkString, sub = "note|subnote".r), pretty = false)
+  else toXml(parse(fromFile(args(0), "UTF-8").mkString, sub = "note|subnote".r), pretty = false)
 )
 */
