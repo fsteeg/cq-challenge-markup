@@ -97,23 +97,23 @@ private[markup] class MarkupParser(sub: Regex = Markup.defaultSubPattern) extend
 
   def parseMarkup(m: String): Body = checked(parseAll(body, Preprocessor.clean(m)))
 
-  def body: Parser[Body] = rep(h | pre | list | blockquote | linkDef | p) ^^ { case c => Body(c) }
+  def body: Parser[Body] = rep(h | pre | list | blockquote | linkDef | p) ^^ { Body(_) }
 
   def h: Parser[H] = rep1("*") ~ " " ~ text ^^ { case h ~ _ ~ p => H(h.size, p) }
 
   /* A verbatim section is indented with 3 spaces and its content is captured as it is: */
-  def pre: Parser[Pre] = block(3) ^^ { case b => Pre(b) }
+  def pre: Parser[Pre] = block(3) ^^ { Pre(_) }
 
   /* A blockquote section is indented with 2 spaces and its content is parsed like a body: */
   def blockquote: Parser[BlockQuote] = block(2) ^^ {
     case b => BlockQuote(parseInternal(body, b).children)
   }
 
-  def p: Parser[P] = text ^^ { case c => P(c) }
+  def p: Parser[P] = text ^^ { P(_) }
 
   def text: Parser[List[Element]] =
-    rep1(link | linkSimple | para(textChar) | taggedSubdoc | taggedTextual) ~ rep(newLine) ^^ {
-      case textSections ~ _ => textSections.map(_ match {
+    rep1(link | linkSimple | para(textChar) | taggedSubdoc | taggedTextual) <~ rep(newLine) ^^ {
+      _ map(_ match {
         case t: String => TextElement(t); case sub: Element => sub
       })
     }
@@ -124,8 +124,8 @@ private[markup] class MarkupParser(sub: Regex = Markup.defaultSubPattern) extend
     case s@_ => BlockQuote(parseInternal(body, s).children)
   }
 
-  def ols: Parser[List[Li]] = rep1("# " ~ li) ^^ { case list => list.map(_ match { case _ ~ i => i }) }
-  def uls: Parser[List[Li]] = rep1("- " ~ li) ^^ { case list => list.map(_ match { case _ ~ i => i }) }
+  def ols: Parser[List[Li]] = rep1("# " ~> li)
+  def uls: Parser[List[Li]] = rep1("- " ~> li)
 
   def li: Parser[Li] = {
     def li(s: String) = Li(parseInternal(body, s).children)
@@ -136,18 +136,18 @@ private[markup] class MarkupParser(sub: Regex = Markup.defaultSubPattern) extend
     }
   }
 
-  def link: Parser[Link] = "[" ~ linkLabel ~ "|" ~ tag ~ "]" ^^ { case _ ~ t ~ _ ~ k ~ _ => Link(List(t, Key(k))) }
-  def linkSimple: Parser[Link] = "[" ~ linkLabel ~ "]" ^^ { case _ ~ t ~ _ => Link(List(t)) }
+  def link: Parser[Link] = "[" ~> linkLabel ~ "|" ~ tag <~ "]" ^^ { case t ~ _ ~ k => Link(List(t, Key(k))) }
+  def linkSimple: Parser[Link] = "[" ~> linkLabel <~ "]" ^^ { case t => Link(List(t)) }
   def linkLabel: Parser[Element] = taggedTextual | rep1("""[^|\]]""".r) ^^ { case c => TextElement(c.mkString) }
-  def linkDef: Parser[LinkDef] = linkSimple ~ rep(" ") ~ "<" ~ rep1("""[^>]""".r) ~ ">" ~ rep(newLine) ^^ {
-    case link ~ _ ~ _ ~ url ~ _ ~ _ => LinkDef(link, Url(url.mkString))
+  def linkDef: Parser[LinkDef] = linkSimple ~ rep(" ") ~ "<" ~ rep1("""[^>]""".r) <~ ">" <~ rep(newLine) ^^ {
+    case link ~ _ ~ _ ~ url => LinkDef(link, Url(url.mkString))
   }
 
   def taggedTextual: Parser[Tagged] = tagged(tag, text)
   def taggedSubdoc: Parser[Tagged] = tagged(sub, subdoc)
-  def subdoc: Parser[List[Element]] = body ^^ { case c => c.children }
+  def subdoc: Parser[List[Element]] = body ^^ { _.children }
   def tagged(tag: Parser[String], content: Parser[List[Element]]) =
-    """\""" ~ tag ~ "{" ~ content ~ "}" ~ opt(newLine) ^^ { case _ ~ tag ~ _ ~ c ~ _ ~ _ => Tagged(tag, c) }
+    """\""" ~> tag ~ "{" ~ content <~ "}" <~ opt(newLine) ^^ { case tag ~ _ ~ c => Tagged(tag, c) }
 
   def parseInternal[T](e: Parser[T], s: String): T = checked(super.parseAll(e, s))
   def checked[T](p: ParseResult[T]): T = p match {
@@ -171,17 +171,17 @@ private[markup] class MarkupLexer extends JavaTokenParsers with RegexParsers {
   }
 
   /* Sections of characters, configurable to use a certain class, e.g. rawChar or textChar. */
-  def para(c: Parser[String]) = rep1sep(text(c), newLine) ~ opt(newLine) ^^ { case raw ~ _ => raw.mkString(" ") }
-  def line(c: Parser[String]) = text(c) ~ (newLine | end) ^^ { case c ~ _ => c.mkString }
-  def text(c: Parser[String]) = rep1(c) ^^ { case c => c.mkString }
+  def para(c: Parser[String]) = rep1sep(text(c), newLine) <~ opt(newLine) ^^ { _.mkString(" ") }
+  def line(c: Parser[String]) = text(c) <~ (newLine | end) ^^ { _.mkString }
+  def text(c: Parser[String]) = rep1(c) ^^ { _.mkString }
 
   /* Actual character definitions: */
   def rawChar = """.""".r
-  def textChar = """[^\\{}\[\n]""".r | """\""" ~ escapedChar ^^ { case _ ~ c => c }
+  def textChar = """[^\\{}\[\n]""".r | """\""" ~> escapedChar
   def escapedChar = requiredEscapes | optionalEscapes
   def requiredEscapes = """\""" | "{" | "}" | "["
   def optionalEscapes = "*" | "-" | "#"
-  def tag = rep1("""[\d\w-.]""".r) ^^ { case chars => chars.mkString }
+  def tag = rep1("""[\d\w-.]""".r) ^^ { _.mkString }
   def newLine = "\u000D\u000A" | "\u000D" | "\u000A"
   def end = """$""".r
 }
